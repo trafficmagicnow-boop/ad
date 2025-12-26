@@ -9,6 +9,7 @@ import sys
 import datetime
 import threading
 import time
+import sqlite3
 
 # --- CONFIGURATION ---
 TOKEN = "5a4fb29a30fb14b3c7bbea8333056f86"
@@ -112,29 +113,29 @@ def scraper_loop():
         
         time.sleep(3600) # Once per hour is enough for offers
 
-import sqlite3
-
 def init_db(db_path):
     """Initialize the SQLite database with required tables."""
     conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    # Table to track total revenue per Click ID (deduplication)
-    c.execute('''CREATE TABLE IF NOT EXISTS conversions (
-                 click_id TEXT PRIMARY KEY,
-                 total_rev REAL DEFAULT 0,
-                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                 )''')
-    # Table to log sync events (history)
-    c.execute('''CREATE TABLE IF NOT EXISTS sync_log (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 click_id TEXT,
-                 amount REAL,
-                 tx_id TEXT,
-                 status TEXT,
-                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                 )''')
-    conn.commit()
-    return conn
+    try:
+        c = conn.cursor()
+        # Table to track total revenue per Click ID (deduplication)
+        c.execute('''CREATE TABLE IF NOT EXISTS conversions (
+                     click_id TEXT PRIMARY KEY,
+                     total_rev REAL DEFAULT 0,
+                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                     )''')
+        # Table to log sync events (history)
+        c.execute('''CREATE TABLE IF NOT EXISTS sync_log (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     click_id TEXT,
+                     amount REAL,
+                     tx_id TEXT,
+                     status TEXT,
+                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                     )''')
+        conn.commit()
+    finally:
+        conn.close()
 
 def syncer_loop():
     """Background loop to sync with Skro using SQLite for persistence."""
@@ -148,7 +149,7 @@ def syncer_loop():
     
     # Initialize DB (run once on start in thread)
     try:
-        init_db(db_path).close()
+        init_db(db_path)
         print(f">>> Database initialized at: {db_path}")
     except Exception as e:
         print(f"DB Init Failed: {e}")
@@ -257,6 +258,9 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed.path == "/api/status":
             self._send_json({"last_sync": local_cache["last_sync"], "log": local_cache["sync_log"]})
         elif parsed.path == "/" or parsed.path == "/index.html":
+            if not os.path.exists("dashboard.html"):
+                self.send_error(404, "Dashboard file not found")
+                return
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
@@ -353,9 +357,56 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json(resp)
 
     def _handle_manual_sync(self):
-        # Trigger one iteration of syncer logic in a new thread to avoid blocking
-        threading.Thread(target=syncer_loop, daemon=True).start()
-        self._send_json({"status": "triggered", "message": "Sync started in background"})
+        # Run a single sync iteration without spawning new infinite loop
+        def sync_once():
+            storage_dir = os.environ.get("STORAGE_PATH", ".")
+            db_path = os.path.join(storage_dir, "adw.db")
+            try:
+                today = datetime.datetime.now().strftime("%d.%m.%Y")
+                payload = {
+                    "date_start": today, "date_end": today,
+                    "groups": ["campaign"], 
+                    "timezone": "Europe/Kyiv",
+                    "limit": 500
+                }
+                resp = api_req(URL_ACTION, "/panel/stats", payload)
+                count = 0
+                if resp and resp.get("status") == "ok":
+                    lst = resp.get("data", {}).get("list", []) or []
+                    with sqlite3.connect(db_path) as conn:
+                        cursor = conn.cursor()
+                        for row in lst:
+                            groups = row.get("groups")
+                            clickid = None
+                            if isinstance(groups, list) and len(groups) > 0:
+                                clickid = groups[0]
+                            elif isinstance(groups, dict):
+                                clickid = groups.get("sub1")
+                            if not clickid:
+                                clickid = row.get("sub1") or row.get("group")
+                            current_rev = float(row.get("revenue", 0))
+                            if clickid and current_rev > 0:
+                                cursor.execute("SELECT total_rev FROM conversions WHERE click_id = ?", (clickid,))
+                                res = cursor.fetchone()
+                                prev_rev = res[0] if res else 0.0
+                                if current_rev > prev_rev:
+                                    delta = current_rev - prev_rev
+                                    if delta > 0.001:
+                                        txid = f"{clickid}-{int(time.time())}"
+                                        pb_url = f"https://skrotrack.com/postback?clickId={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=manual"
+                                        try:
+                                            urllib.request.urlopen(pb_url, context=ctx)
+                                            count += 1
+                                            cursor.execute("INSERT OR REPLACE INTO conversions (click_id, total_rev) VALUES (?, ?)", (clickid, current_rev))
+                                            cursor.execute("INSERT INTO sync_log (click_id, amount, tx_id, status) VALUES (?, ?, ?, ?)", (clickid, delta, txid, "manual"))
+                                            conn.commit()
+                                        except: pass
+                print(f"Manual sync: {count} conversions")
+            except Exception as e:
+                print(f"Manual sync error: {e}")
+        
+        threading.Thread(target=sync_once, daemon=True).start()
+        self._send_json({"status": "triggered", "message": "One-time sync started"})
 
     def _send_json(self, d):
         self.send_response(200)

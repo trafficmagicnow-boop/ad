@@ -10,6 +10,10 @@ restartPolicyMaxRetries = 3
 name = "STORAGE_PATH"
 value = "/data"
 
+[[deploy.environmentVariables]]
+name = "PYTHONUNBUFFERED"
+value = "1"
+
 [[volumes]]
 name = "adw_storage"
 mountPath = "/data"
