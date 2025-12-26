@@ -112,22 +112,46 @@ def scraper_loop():
         
         time.sleep(3600) # Once per hour is enough for offers
 
+import sqlite3
+
+def init_db(db_path):
+    """Initialize the SQLite database with required tables."""
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    # Table to track total revenue per Click ID (deduplication)
+    c.execute('''CREATE TABLE IF NOT EXISTS conversions (
+                 click_id TEXT PRIMARY KEY,
+                 total_rev REAL DEFAULT 0,
+                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                 )''')
+    # Table to log sync events (history)
+    c.execute('''CREATE TABLE IF NOT EXISTS sync_log (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 click_id TEXT,
+                 amount REAL,
+                 tx_id TEXT,
+                 status TEXT,
+                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                 )''')
+    conn.commit()
+    return conn
+
 def syncer_loop():
-    """Background loop to sync with Skro."""
-    # Load sync state to prevent duplicates
+    """Background loop to sync with Skro using SQLite for persistence."""
     # Support for Persistent Volume (Railway/Docker)
     storage_dir = os.environ.get("STORAGE_PATH", ".")
     if not os.path.exists(storage_dir):
         try: os.makedirs(storage_dir)
         except: pass
         
-    sync_state = {}
-    state_file = os.path.join(storage_dir, "sync_state.json")
+    db_path = os.path.join(storage_dir, "adw.db")
     
-    if os.path.exists(state_file):
-        try:
-            with open(state_file, "r") as f: sync_state = json.load(f)
-        except: pass
+    # Initialize DB (run once on start in thread)
+    try:
+        init_db(db_path).close()
+        print(f">>> Database initialized at: {db_path}")
+    except Exception as e:
+        print(f"DB Init Failed: {e}")
 
     while True:
         try:
@@ -144,55 +168,61 @@ def syncer_loop():
             resp = api_req(URL_ACTION, "/panel/stats", payload)
             
             count = 0
-            updated_state = False
             
             if resp and resp.get("status") == "ok":
                 lst = resp.get("data", {}).get("list", []) or []
-                for row in lst:
-                    # sub1 is our clickid
-                    groups = row.get("groups")
-                    clickid = None
-                    if isinstance(groups, list) and len(groups) > 0:
-                        clickid = groups[0]
-                    elif isinstance(groups, dict):
-                         clickid = groups.get("sub1")
+                
+                # Connect to DB for this sync cycle
+                with sqlite3.connect(db_path) as conn:
+                    cursor = conn.cursor()
                     
-                    if not clickid:
-                        # Fallback parsing
-                        clickid = row.get("sub1") or row.get("group")
+                    for row in lst:
+                        # sub1 is our clickid
+                        groups = row.get("groups")
+                        clickid = None
+                        if isinstance(groups, list) and len(groups) > 0:
+                            clickid = groups[0]
+                        elif isinstance(groups, dict):
+                                clickid = groups.get("sub1")
                         
-                    current_rev = float(row.get("revenue", 0))
-                    
-                    if clickid and current_rev > 0:
-                        prev_rev = sync_state.get(clickid, 0.0)
-                        
-                        # Only send if we have NEW revenue
-                        if current_rev > prev_rev:
-                            delta = current_rev - prev_rev
+                        if not clickid:
+                            # Fallback parsing
+                            clickid = row.get("sub1") or row.get("group")
                             
-                            # Sanity check: don't sync tiny float diffs
-                            if delta > 0.001:
-                                # Generate unique transaction ID for this partial update (upsell)
-                                txid = f"{clickid}-{int(time.time())}"
-                                pb_url = f"https://skrotrack.com/postback?clickId={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=autosync"
-                                try:
-                                    urllib.request.urlopen(pb_url, context=ctx)
-                                    count += 1
-                                    # Update state
-                                    sync_state[clickid] = current_rev
-                                    updated_state = True
-                                    log_msg = f"[{datetime.datetime.now().strftime('%H:%M')}] Synced {clickid} (+${delta:.2f})"
-                                    local_cache["sync_log"].insert(0, log_msg)
-                                    print(f"   -> {log_msg}")
-                                except Exception as e:
-                                    print(f"   -> Skro Req Failed: {e}")
-            
-            if updated_state:
-                # Save state to file
-                try:
-                    with open(state_file, "w") as f:
-                        json.dump(sync_state, f)
-                except: pass
+                        current_rev = float(row.get("revenue", 0))
+                        
+                        if clickid and current_rev > 0:
+                            # Check DB for previous total
+                            cursor.execute("SELECT total_rev FROM conversions WHERE click_id = ?", (clickid,))
+                            res = cursor.fetchone()
+                            prev_rev = res[0] if res else 0.0
+                            
+                            # Only send if we have NEW revenue
+                            if current_rev > prev_rev:
+                                delta = current_rev - prev_rev
+                                
+                                # Sanity check: don't sync tiny float diffs
+                                if delta > 0.001:
+                                    # Generate unique transaction ID for this partial update (upsell)
+                                    txid = f"{clickid}-{int(time.time())}"
+                                    pb_url = f"https://skrotrack.com/postback?clickId={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=autosync"
+                                    try:
+                                        urllib.request.urlopen(pb_url, context=ctx)
+                                        count += 1
+                                        
+                                        # Update state in DB
+                                        cursor.execute("INSERT OR REPLACE INTO conversions (click_id, total_rev) VALUES (?, ?)", (clickid, current_rev))
+                                        
+                                        # Log to DB log
+                                        cursor.execute("INSERT INTO sync_log (click_id, amount, tx_id, status) VALUES (?, ?, ?, ?)", (clickid, delta, txid, "synced"))
+                                        
+                                        log_msg = f"[{datetime.datetime.now().strftime('%H:%M')}] Synced {clickid} (+${delta:.2f})"
+                                        local_cache["sync_log"].insert(0, log_msg)
+                                        print(f"   -> {log_msg}")
+                                        
+                                        conn.commit() # Commit transaction immediately
+                                    except Exception as e:
+                                        print(f"   -> Skro Req Failed: {e}")
             
             local_cache["last_sync"] = datetime.datetime.now().strftime("%H:%M:%S")
             local_cache["sync_log"] = local_cache["sync_log"][:50] 
