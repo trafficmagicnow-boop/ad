@@ -1,0 +1,30 @@
+{
+    "offers": [
+        {
+            "id": "247_nurse",
+            "name": "247 Nurse (Example)"
+        },
+        {
+            "id": "crypto_boom",
+            "name": "Crypto Boom"
+        },
+        {
+            "id": "oil_profit",
+            "name": "Oil Profit"
+        }
+    ],
+    "articles": [
+        {
+            "id": "default",
+            "name": "Default Landing"
+        },
+        {
+            "id": "prelander_1",
+            "name": "News Article 1"
+        },
+        {
+            "id": "quiz_page",
+            "name": "Quiz Page"
+        }
+    ]
+}

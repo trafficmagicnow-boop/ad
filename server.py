@@ -43,9 +43,20 @@ def api_req(domain, endpoint, params=None, method='POST'):
 
 def scraper_loop():
     """Periodically refresh offers and articles in the background."""
+    # Load from config.json on first run
+    try:
+        if os.path.exists("config.json"):
+            with open("config.json", "r", encoding="utf-8") as f:
+                config_data = json.load(f)
+                local_cache["offers"] = config_data.get("offers", [])
+                local_cache["articles"] = config_data.get("articles", [])
+                print(f">>> Loaded {len(local_cache['offers'])} offers and {len(local_cache['articles'])} articles from config.json")
+    except Exception as e:
+        print(f"Config load error: {e}")
+    
     while True:
         try:
-            print(">>> Background Scraper: Updating Offers/Articles...")
+            print(">>> Background Scraper: Checking API for updates...")
             # Try finding offers on both domains
             for domain in [URL_INFO, URL_ACTION]:
                 ep_variants = ["/panel/offers", "/panel/list_offers", "/panel/all_offers"]
@@ -63,6 +74,7 @@ def scraper_loop():
                                 if oid: found.append({"id":oid, "name":nm})
                             if found: 
                                 local_cache["offers"] = found
+                                print(f">>> Updated offers from API: {len(found)} items")
                                 break
                 if found: break
 
@@ -73,6 +85,7 @@ def scraper_loop():
                     data = r.get("data", {}).get("list", []) or []
                     if data:
                         local_cache["articles"] = [{"id": i.get("site_key") or i.get("id"), "name": i.get("title") or i.get("name")} for i in data if i.get("site_key") or i.get("id")]
+                        print(f">>> Updated articles from API: {len(local_cache['articles'])} items")
                         break
         except Exception as e:
             print(f"Scraper Error: {e}")
