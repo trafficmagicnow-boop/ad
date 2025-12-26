@@ -283,8 +283,9 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             lid = d.get("link_id") or d.get("link_facebook_id") or d.get("link_tiktok_id")
             url = d.get("url", "")
             
-            # Append sub1 ONLY for S2S links (TikTok/FB track via pixels)
-            if payload["postback"] == "s2s" and "sub1=" not in url:
+            # Append sub1 ALWAYS to support Skro Auto-Sync for all types
+            # (Sync relies on sub1 containing the clickID)
+            if "sub1=" not in url:
                 url += ("&" if "?" in url else "?") + "sub1={clickid}"
                 
             self._send_json({"status": "ok", "url": url, "api_id": lid, "api_status": d.get("status")})
