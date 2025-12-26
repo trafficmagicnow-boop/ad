@@ -160,7 +160,9 @@ def syncer_loop():
                             
                             # Sanity check: don't sync tiny float diffs
                             if delta > 0.001:
-                                pb_url = f"https://s2s.skro.eu/postback?clickid={clickid}&payout={delta}&txt=autosync"
+                                # Generate unique transaction ID for this partial update (upsell)
+                                txid = f"{clickid}-{int(time.time())}"
+                                pb_url = f"https://s2s.skro.eu/postback?clickid={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=autosync"
                                 try:
                                     urllib.request.urlopen(pb_url, context=ctx)
                                     count += 1
