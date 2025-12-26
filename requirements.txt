@@ -1,0 +1,2 @@
+# No external dependencies - using only Python stdlib
+# This file is required by Railway for Python projects

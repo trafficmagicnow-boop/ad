@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Adw Ultimate Panel + AutoSync</title>
+    <style>
+        body {
+            background: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 850px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            height: fit-content;
+        }
+
+        .full-width {
+            grid-column: span 2;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #bb86fc;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #aaa;
+            font-weight: normal;
+        }
+
+        .status-badge.active {
+            background: #003300;
+            color: #00ff00;
+            border: 1px solid #005500;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 10px;
+            margin-bottom: 3px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #2c2c2c;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #3700b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #6200ea;
+        }
+
+        button.sec {
+            background: #03dac6;
+            color: black;
+        }
+
+        #result {
+            margin-top: 15px;
+            background: #252526;
+            padding: 10px;
+            border: 1px dashed #bb86fc;
+            display: none;
+        }
+
+        .link-text {
+            color: #03dac6;
+            word-break: break-all;
+            font-family: monospace;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .json-dump {
+            font-family: monospace;
+            font-size: 10px;
+            white-space: pre-wrap;
+            color: #888;
+            background: #111;
+            padding: 5px;
+            max-height: 200px;
+            overflow: auto;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .col {
+            flex: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- LEFT: CREATOR -->
+        <div class="card">
+            <h2>🚀 Link Creator</h2>
+            <div class="row">
+                <div class="col">
+                    <label>Offer (ID)</label>
+                    <input id="oInp" placeholder="e.g. 247_nurse">
+                </div>
+                <div class="col">
+                    <label>Article (Site Key)</label>
+                    <input id="aInp" placeholder="e.g. Site123">
+                </div>
+            </div>
+
+            <label>Campaign Name / Buyer Tag</label>
+            <input id="cName" placeholder="Buyer_Tag">
+
+            <label>Keywords</label>
+            <input id="kws" placeholder="btc, news">
+
+            <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
+
+            <label>Postback / Pixel</label>
+            <select id="pbType" onchange="pbChange()">
+                <option value="s2s">S2S (Skro Auto)</option>
+                <option value="facebook">Facebook</option>
+                <option value="tiktok">TikTok</option>
+            </select>
+
+            <div id="pixelFields" style="display:none;">
+                <label>Pixel ID</label><input id="pixId">
+                <label>Pixel Token</label><input id="pixTok">
+                <label>Event</label><input id="pixEv" value="Lead">
+            </div>
+
+            <label>Creative ID (Optional)</label>
+            <input id="refCr">
+
+            <button onclick="createLink()">GENERATE LINK</button>
+            <div id="result">
+                <div id="resUrl" class="link-text" onclick="copyIt()"></div>
+                <div style="font-size:10px; color:#aaa;">ID: <span id="resId"></span> | Status: <span
+                        id="resStatus"></span></div>
+            </div>
+        </div>
+
+        <!-- RIGHT: AUTO-SYNC -->
+        <div class="card">
+            <h2>
+                📊 Auto-Sync
+                <span class="status-badge active" id="syncBadge">ACTIVE (5m)</span>
+            </h2>
+
+            <div style="font-size: 12px; color: #ccc; margin-bottom: 5px;">
+                Last Sync: <span id="lastSyncTime">--:--:--</span>
+            </div>
+            <div id="syncLogBox" class="json-dump" style="height: 100px;">Waiting for next sync cycle...</div>
+
+            <button style="background: #b00020; margin-top:10px; font-size:12px; padding:5px;"
+                onclick="runSync()">Trigger Manual Sync Now</button>
+
+            <h3 style="margin-top:20px;">Adw Raw Stats</h3>
+            <button class="sec" style="font-size:11px; padding:5px;" onclick="loadStats()">Get Raw JSON</button>
+            <div id="rawStats" class="json-dump" style="height: 100px;"></div>
+        </div>
+
+        <!-- BOTTOM: HISTORY -->
+        <div class="card full-width">
+            <h2>
+                📜 Link History
+                <button class="sec" style="width: auto; padding: 4px 10px; margin:0; font-size:11px;"
+                    onclick="loadHistory()">Refresh</button>
+            </h2>
+            <table width="100%" style="font-size:12px; margin-top:5px; border-collapse: collapse; color:#ccc;">
+                <thead>
+                    <tr style="text-align:left; border-bottom:1px solid #444;">
+                        <th>Date</th>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Offer</th>
+                        <th>URL</th>
+                    </tr>
+                </thead>
+                <tbody id="histBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function pbChange() {
+            document.getElementById('pixelFields').style.display = document.getElementById('pbType').value === 's2s' ? 'none' : 'block';
+        }
+
+        async function createLink() {
+            const payload = {
+                offer: document.getElementById('oInp').value,
+                article: document.getElementById('aInp').value,
+                name: document.getElementById('cName').value,
+                title: document.getElementById('cName').value, // Add title field
+                referrerAdCreative: document.getElementById('refCr').value,
+                keywords: document.getElementById('kws').value,
+                postback_type: document.getElementById('pbType').value,
+                pixel_id: document.getElementById('pixId').value,
+                pixel_token: document.getElementById('pixTok').value,
+                pixel_event: document.getElementById('pixEv').value
+            };
+            if (!payload.name) return alert("Enter Campaign Name!");
+            if (!payload.offer) return alert("Enter Offer ID!");
+            const btn = event.target; btn.disabled = true; btn.innerText = "WORKING...";
+            try {
+                const res = await fetch('/api/create_link', { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
+                if (res.status === 'ok') {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('resUrl').innerText = res.url;
+                    document.getElementById('resId').innerText = res.api_id;
+                    document.getElementById('resStatus').innerText = res.api_status;
+                } else alert(JSON.stringify(res.debug || res));
+            } catch (e) { alert("Err"); }
+            btn.disabled = false; btn.innerText = "GENERATE LINK";
+        }
+
+        function copyIt() { navigator.clipboard.writeText(document.getElementById('resUrl').innerText); alert("Copied"); }
+
+        async function loadStats() {
+            const d = document.getElementById('rawStats'); d.innerText = "Loading...";
+            const res = await fetch('/api/get_stats', { method: 'POST' }).then(r => r.json());
+            d.innerText = JSON.stringify(res.data || res, null, 2);
+        }
+
+        async function runSync() {
+            const res = await fetch('/api/sync', { method: 'POST' }).then(r => r.json());
+            alert(`Synced ${res.synced} events`);
+            checkStatus();
+        }
+
+        async function loadHistory() {
+            const res = await fetch('/api/list_links', { method: 'POST' }).then(r => r.json());
+            const b = document.getElementById('histBody'); b.innerHTML = '';
+            if (res.links) res.links.forEach(l => b.innerHTML += `<tr><td>${l.date}</td><td>${l.id}</td><td>${l.name}</td><td>${l.offer}</td><td style="font-family:monospace;font-size:10px;">${l.url}</td></tr>`);
+        }
+
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/status').then(r => r.json());
+                document.getElementById('lastSyncTime').innerText = res.last_sync;
+                if (res.log && res.log.length) document.getElementById('syncLogBox').innerText = res.log.join('\n');
+                else document.getElementById('syncLogBox').innerText = "No events synced yet.";
+            } catch (e) { }
+        }
+
+        setInterval(checkStatus, 5000); // Poll status every 5s
+        checkStatus();
+        loadHistory();
+    </script>
+</body>
+
+</html>
