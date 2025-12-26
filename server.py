@@ -751,6 +751,32 @@ if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 8000))  # Railway provides PORT env var
     socketserver.TCPServer.allow_reuse_address = True
     
+    # --- STARTUP DIAGNOSTICS ---
+    print(f"=== SYSTEM STARTUP DIAGNOSIS ===")
+    cwd = os.getcwd()
+    print(f"CWD: {cwd}")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    print(f"Script Dir: {script_dir}")
+    
+    dash_path = os.path.join(script_dir, "dashboard.html")
+    if os.path.exists(dash_path):
+        with open(dash_path, "rb") as f:
+            content = f.read()
+            import hashlib
+            h = hashlib.md5(content).hexdigest()
+            print(f"dashboard.html FOUND. Path: {dash_path}")
+            print(f"dashboard.html SIZE: {len(content)} bytes")
+            print(f"dashboard.html MD5: {h}")
+            if "VERSION 2.6" in content.decode('utf-8', errors='ignore'):
+                print("✅ VERSION 2.6 BANNER DETECTED IN FILE")
+            else:
+                print("❌ OLD VERSION DETECTED IN FILE")
+    else:
+        print(f"❌ dashboard.html NOT FOUND at {dash_path}")
+        print("Directory listing:")
+        print(os.listdir(cwd))
+    # ---------------------------
+
     # Start threads
     threading.Thread(target=scraper_loop, daemon=True).start()
     threading.Thread(target=syncer_loop, daemon=True).start()
@@ -758,6 +784,8 @@ if __name__ == "__main__":
     print(f"=== ADW INTEGRATION SERVER STARTED ===")
     print(f"Port: {PORT}")
     try:
+        # Change dir to script dir to ensure relative paths work if needed
+        os.chdir(script_dir)
         with socketserver.TCPServer(("0.0.0.0", PORT), APIHandler) as httpd:  # Bind to 0.0.0.0 for Railway
             httpd.serve_forever()
     except Exception as e:
