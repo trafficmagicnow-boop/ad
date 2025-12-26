@@ -43,10 +43,15 @@ def api_req(domain, endpoint, data=None):
             req = urllib.request.Request(url, headers=headers)
         
         with urllib.request.urlopen(req, context=ctx, timeout=15) as r:
-            return json.loads(r.read().decode())
+            raw = r.read().decode()
+            # Handle broken API returning PHP notices before JSON
+            if "{" in raw:
+                raw_json = raw[raw.find("{"):]
+                return json.loads(raw_json)
+            return json.loads(raw)
     except Exception as e:
         print(f"API Error ({endpoint}): {e}")
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "raw": raw if 'raw' in locals() else ""}
 
 def scraper_loop():
     """Periodically refresh offers and articles in the background."""
@@ -234,10 +239,12 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         
         # Base payload with common fields
         # "name", "offer", "site_key", "title", "referrerAdCreative", "keywords", "postback"
+        site_val = data.get("article") or "default_site"
         payload = {
             "name": data.get("name", ""),
             "offer": data.get("offer", ""),
-            "site_key": data.get("article") or "default_site", # Required
+            "site_key": site_val,
+            "direct": site_val, # REQUIRED by API backend (undocumented legacy prop?)
             "title": data.get("title") or data.get("name", ""),
             "referrerAdCreative": data.get("referrerAdCreative") or "organic",
             "keywords": kw_list,
