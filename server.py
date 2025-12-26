@@ -230,25 +230,43 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         while len(kw_list) < 3:
             kw_list.append(f"keyword{len(kw_list)+1}")
         
-        # Doc fields mapping - Match exact API requirements for TikTok
+        # Base payload with common fields
+        # "name", "offer", "site_key", "title", "referrerAdCreative", "keywords", "postback"
         payload = {
             "name": data.get("name", ""),
             "offer": data.get("offer", ""),
+            "site_key": data.get("article") or "default_site", # Required
             "title": data.get("title") or data.get("name", ""),
-            "postback": data.get("postback_type", "s2s"),
-            "keywords": kw_list,
-            "pixel_id": data.get("pixel_id", ""),
-            "pixel_token": data.get("pixel_token", ""),
-            "pixel_event": data.get("pixel_event", ""),
             "referrerAdCreative": data.get("referrerAdCreative") or "organic",
-            "site_key": data.get("article") or "default_site"  # Explicitly 'site_key' per docs
+            "keywords": kw_list,
+            "postback": data.get("postback_type", "s2s")
         }
-        
-        # Handle S2S Defaults (Only for S2S type)
+
+        # Type-specific fields based on docs examples
         if payload["postback"] == "s2s":
-            if not payload["pixel_token"]: 
-                payload["pixel_token"] = "https://s2s.skro.eu/postback?clickid={clickid}&payout={revenue}"
-            if not payload["pixel_event"]: payload["pixel_event"] = "lead"
+             # For S2S, 'pixel_token' holds the Postback URL
+             # Example input only showed pixel_token
+             pt = data.get("pixel_token", "")
+             if not pt:
+                 pt = "https://s2s.skro.eu/postback?clickid={clickid}&payout={revenue}"
+             payload["pixel_token"] = pt
+             
+             # Optionally send pixel_event if you want defaults, but example omitted it for input.
+             # We will send 'lead' just in case, or omit if strictly following input list.
+             # Response example showed 'pixel_event': 'lead', so better to send it.
+             payload["pixel_event"] = "lead"
+
+        elif payload["postback"] in ["tiktok", "facebook"]:
+            # TikTok/FB need all pixel fields
+            payload["pixel_id"] = data.get("pixel_id", "")
+            payload["pixel_token"] = data.get("pixel_token", "") # Access Token
+            payload["pixel_event"] = data.get("pixel_event", "Lead")
+
+        # Fallback for other potential types (should match TikTok structure usually)
+        else:
+            payload["pixel_id"] = data.get("pixel_id", "")
+            payload["pixel_token"] = data.get("pixel_token", "")
+            payload["pixel_event"] = data.get("pixel_event", "")
 
         resp = api_req(URL_ACTION, "/panel/link_create", payload)
         if resp and resp.get("status") == "ok":
