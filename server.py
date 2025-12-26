@@ -399,7 +399,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             })
         elif parsed.path == "/api/status":
             self._send_json({"last_sync": local_cache["last_sync"], "log": local_cache["sync_log"]})
-        elif parsed.path == "/" or parsed.path == "/index.html":
+        elif parsed.path == "/" or parsed.path == "/index.html" or parsed.path == "/panel":
             # Check if user is authenticated
             storage_dir = os.environ.get("STORAGE_PATH", ".")
             db_path = os.path.join(storage_dir, "adw.db")
@@ -407,14 +407,15 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             user = get_user_from_session(db_path, token)
             
             if user:
-                # Serve dashboard
-                if not os.path.exists("dashboard.html"):
-                    self.send_error(404, "Dashboard file not found")
+                # Serve dashboard (now panel.html)
+                # Updated to panel.html to bust Railway cache
+                if not os.path.exists("panel.html"):
+                    self.send_error(404, "Panel file not found (cache bust)")
                     return
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html; charset=utf-8')
                 self.end_headers()
-                with open("dashboard.html", "rb") as f: self.wfile.write(f.read())
+                with open("panel.html", "rb") as f: self.wfile.write(f.read())
             else:
                 # Serve login page
                 if not os.path.exists("login.html"):
@@ -758,21 +759,22 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     print(f"Script Dir: {script_dir}")
     
-    dash_path = os.path.join(script_dir, "dashboard.html")
+    # Updated diagnostics for panel.html
+    dash_path = os.path.join(script_dir, "panel.html")
     if os.path.exists(dash_path):
         with open(dash_path, "rb") as f:
             content = f.read()
             import hashlib
             h = hashlib.md5(content).hexdigest()
-            print(f"dashboard.html FOUND. Path: {dash_path}")
-            print(f"dashboard.html SIZE: {len(content)} bytes")
-            print(f"dashboard.html MD5: {h}")
+            print(f"panel.html FOUND. Path: {dash_path}")
+            print(f"panel.html SIZE: {len(content)} bytes")
+            print(f"panel.html MD5: {h}")
             if "VERSION 2.6" in content.decode('utf-8', errors='ignore'):
-                print("✅ VERSION 2.6 BANNER DETECTED IN FILE")
+                print("✅ VERSION 2.6 BANNER DETECTED IN FILE (Updated Config)")
             else:
                 print("❌ OLD VERSION DETECTED IN FILE")
     else:
-        print(f"❌ dashboard.html NOT FOUND at {dash_path}")
+        print(f"❌ panel.html NOT FOUND at {dash_path}")
         print("Directory listing:")
         print(os.listdir(cwd))
     # ---------------------------
