@@ -115,8 +115,15 @@ def scraper_loop():
 def syncer_loop():
     """Background loop to sync with Skro."""
     # Load sync state to prevent duplicates
+    # Support for Persistent Volume (Railway/Docker)
+    storage_dir = os.environ.get("STORAGE_PATH", ".")
+    if not os.path.exists(storage_dir):
+        try: os.makedirs(storage_dir)
+        except: pass
+        
     sync_state = {}
-    state_file = "sync_state.json"
+    state_file = os.path.join(storage_dir, "sync_state.json")
+    
     if os.path.exists(state_file):
         try:
             with open(state_file, "r") as f: sync_state = json.load(f)
