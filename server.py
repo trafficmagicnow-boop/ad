@@ -174,18 +174,7 @@ def syncer_loop():
                                     print(f"   -> {log_msg}")
                                 except Exception as e:
                                     print(f"   -> Skro Req Failed: {e}")
-                                    
-# ... verification of context for second chunk ...
-
-        # Type-specific fields based on docs examples
-        if payload["postback"] == "s2s":
-             # For S2S, 'pixel_token' holds the Postback URL
-             # Example input only showed pixel_token
-             pt = data.get("pixel_token", "")
-             if not pt:
-                 pt = "https://skrotrack.com/postback?clickId={clickid}&payout={revenue}"
-             payload["pixel_token"] = pt
-
+            
             if updated_state:
                 # Save state to file
                 try:
