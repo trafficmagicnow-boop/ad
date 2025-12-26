@@ -462,6 +462,10 @@
                     const data = await res.json();
                     if (data.status === 'ok') {
                         const user = data.user;
+
+                        // DEBUG ALERT
+                        alert(`DEBUG: Loaded User: ${user.username}, Role: ${user.role}`);
+
                         document.getElementById('userInfo').textContent = `👤 ${user.username} (${user.role})`;
 
                         // Show admin panel if admin
@@ -475,6 +479,7 @@
                 }
             } catch (e) {
                 console.error("Auth check failed", e);
+                alert("Auth Check Failed: " + e);
             }
         }
 
