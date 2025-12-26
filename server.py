@@ -121,10 +121,11 @@ def syncer_loop():
         try:
             print(">>> Auto-Sync: Fetching stats by ClickID (sub1)...")
             today = datetime.datetime.now().strftime("%d.%m.%Y")
-            # CRITICAL: Group by sub1 to get revenue PER CLICK_ID
+            # CRITICAL: Docs say "campaign - By subid". 
+            # So we use groups=['campaign'] to get the stats per subid.
             payload = {
                 "date_start": today, "date_end": today,
-                "groups": ["sub1"], 
+                "groups": ["campaign"], 
                 "timezone": "Europe/Kyiv",
                 "limit": 500
             }
