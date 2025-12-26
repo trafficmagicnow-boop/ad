@@ -8,7 +8,141 @@ import os
 import sys
 import datetime
 import threading
-import time
+import hashlib
+import uuid
+import time as time_module
+
+def hash_password(password):
+    """Hash password using SHA-256"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def init_db(db_path):
+    """Initialize the SQLite database with required tables and indexes."""
+    conn = sqlite3.connect(db_path)
+    try:
+        c = conn.cursor()
+        
+        # Users table
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     username TEXT UNIQUE NOT NULL,
+                     password_hash TEXT NOT NULL,
+                     role TEXT DEFAULT 'user',
+                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                     )''')
+        
+        # Campaigns table (track user's created links)
+        c.execute('''CREATE TABLE IF NOT EXISTS campaigns (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     user_id INTEGER NOT NULL,
+                     name TEXT,
+                     link_id TEXT,
+                     offer TEXT,
+                     site TEXT,
+                     url TEXT,
+                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                     FOREIGN KEY(user_id) REFERENCES users(id)
+                     )''')
+        
+        # Sessions table
+        c.execute('''CREATE TABLE IF NOT EXISTS sessions (
+                     token TEXT PRIMARY KEY,
+                     user_id INTEGER NOT NULL,
+                     expires_at REAL,
+                     FOREIGN KEY(user_id) REFERENCES users(id)
+                     )''')
+        
+        # Table to track total revenue per Click ID (deduplication)
+        c.execute('''CREATE TABLE IF NOT EXISTS conversions (
+                     click_id TEXT PRIMARY KEY,
+                     total_rev REAL DEFAULT 0,
+                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                     )''')
+        # Table to log sync events (history)
+        c.execute('''CREATE TABLE IF NOT EXISTS sync_log (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     click_id TEXT,
+                     amount REAL,
+                     tx_id TEXT,
+                     status TEXT,
+                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                     )''')
+        
+        # Create indexes for performance at scale
+        c.execute('''CREATE INDEX IF NOT EXISTS idx_sync_log_clickid ON sync_log(click_id)''')
+        c.execute('''CREATE INDEX IF NOT EXISTS idx_sync_log_timestamp ON sync_log(timestamp)''')
+        c.execute('''CREATE INDEX IF NOT EXISTS idx_conversions_updated ON conversions(last_updated)''')
+        c.execute('''CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns(user_id)''')
+        c.execute('''CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)''')
+        
+        # Create default admin user if not exists
+        c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
+        if c.fetchone()[0] == 0:
+            admin_hash = hash_password("admin123")
+            c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                     ("admin", admin_hash, "admin"))
+            print(">>> Created default admin user (username: admin, password: admin123)")
+        
+        conn.commit()
+    finally:
+        conn.close()
+
+def create_session(db_path, user_id):
+    """Create a new session for user"""
+    token = str(uuid.uuid4())
+    expires_at = time_module.time() + 86400  # 24 hours
+    
+    with sqlite3.connect(db_path) as conn:
+        c = conn.cursor()
+        c.execute("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+                 (token, user_id, expires_at))
+        conn.commit()
+    return token
+
+def validate_session(db_path, token):
+    """Check if session is valid and not expired"""
+    if not token:
+        return None
+    
+    with sqlite3.connect(db_path) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token,))
+        res = c.fetchone()
+        
+        if not res:
+            return None
+        
+        user_id, expires_at = res
+        if time_module.time() > expires_at:
+            # Session expired
+            c.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            conn.commit()
+            return None
+        
+        return user_id
+
+def get_user_from_session(db_path, token):
+    """Get user object from session token"""
+    user_id = validate_session(db_path, token)
+    if not user_id:
+        return None
+    
+    with sqlite3.connect(db_path) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, username, role FROM users WHERE id = ?", (user_id,))
+        res = c.fetchone()
+        
+        if res:
+            return {"id": res[0], "username": res[1], "role": res[2]}
+    return None
+
+def cleanup_expired_sessions(db_path):
+    """Remove expired sessions"""
+    with sqlite3.connect(db_path) as conn:
+        c = conn.cursor()
+        c.execute("DELETE FROM sessions WHERE expires_at < ?", (time_module.time(),))
+        conn.commit()
+
 import sqlite3
 
 # --- CONFIGURATION ---
@@ -124,31 +258,8 @@ def scraper_loop():
         except Exception as e:
             print(f"Scraper Error: {e}")
         
-        time.sleep(3600) # Once per hour is enough for offers
+        time_module.sleep(3600) # Once per hour is enough for offers
 
-def init_db(db_path):
-    """Initialize the SQLite database with required tables."""
-    conn = sqlite3.connect(db_path)
-    try:
-        c = conn.cursor()
-        # Table to track total revenue per Click ID (deduplication)
-        c.execute('''CREATE TABLE IF NOT EXISTS conversions (
-                     click_id TEXT PRIMARY KEY,
-                     total_rev REAL DEFAULT 0,
-                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                     )''')
-        # Table to log sync events (history)
-        c.execute('''CREATE TABLE IF NOT EXISTS sync_log (
-                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                     click_id TEXT,
-                     amount REAL,
-                     tx_id TEXT,
-                     status TEXT,
-                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                     )''')
-        conn.commit()
-    finally:
-        conn.close()
 
 def syncer_loop():
     """Background loop to sync with Skro using SQLite for persistence."""
@@ -248,12 +359,22 @@ def syncer_loop():
         except Exception as e:
             print(f"Syncer Error: {e}")
         
-        time.sleep(SYNC_INTERVAL)
+        time_module.sleep(SYNC_INTERVAL)
 
 class APIHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
-        if path == "/api/create_link":
+        
+        # Auth endpoints
+        if path == "/api/login":
+            self._handle_login()
+        elif path == "/api/logout":
+            self._handle_logout()
+        elif path == "/api/admin/users/create":
+            self._handle_admin_users_create()
+        elif path == "/api/admin/users/delete":
+            self._handle_admin_users_delete()
+        elif path == "/api/create_link":
             self._handle_create()
         elif path == "/api/list_links":
             self._handle_history()
@@ -266,7 +387,11 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == "/api/data":
+        if parsed.path == "/api/me":
+            self._handle_me()
+        elif parsed.path == "/api/admin/users":
+            self._handle_admin_users_list()
+        elif parsed.path == "/api/data":
             self._send_json({
                 "offers": local_cache["offers"], 
                 "articles": local_cache["articles"],
@@ -275,15 +400,206 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed.path == "/api/status":
             self._send_json({"last_sync": local_cache["last_sync"], "log": local_cache["sync_log"]})
         elif parsed.path == "/" or parsed.path == "/index.html":
-            if not os.path.exists("dashboard.html"):
-                self.send_error(404, "Dashboard file not found")
-                return
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html; charset=utf-8')
-            self.end_headers()
-            with open("dashboard.html", "rb") as f: self.wfile.write(f.read())
+            # Check if user is authenticated
+            storage_dir = os.environ.get("STORAGE_PATH", ".")
+            db_path = os.path.join(storage_dir, "adw.db")
+            token = self._get_session_token()
+            user = get_user_from_session(db_path, token)
+            
+            if user:
+                # Serve dashboard
+                if not os.path.exists("dashboard.html"):
+                    self.send_error(404, "Dashboard file not found")
+                    return
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html; charset=utf-8')
+                self.end_headers()
+                with open("dashboard.html", "rb") as f: self.wfile.write(f.read())
+            else:
+                # Serve login page
+                if not os.path.exists("login.html"):
+                    self.send_error(404, "Login page not found")
+                    return
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html; charset=utf-8')
+                self.end_headers()
+                with open("login.html", "rb") as f: self.wfile.write(f.read())
         else:
             super().do_GET()
+
+
+    def _get_session_token(self):
+        """Extract session token from cookie"""
+        cookie_header = self.headers.get('Cookie', '')
+        for cookie in cookie_header.split(';'):
+            cookie = cookie.strip()
+            if cookie.startswith('session='):
+                return cookie.split('=', 1)[1]
+        return None
+
+    def _handle_admin_users_list(self):
+        """List all users (Admin only)"""
+        if not self._check_admin(): return
+        
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, username, role, created_at FROM users")
+            users = [{"id": r[0], "username": r[1], "role": r[2], "created_at": r[3]} for r in c.fetchall()]
+            
+        self._send_json({"status": "ok", "users": users})
+
+    def _handle_admin_users_create(self):
+        """Create new user (Admin only)"""
+        if not self._check_admin(): return
+
+        l = int(self.headers['Content-Length'])
+        data = json.loads(self.rfile.read(l))
+        
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        role = data.get("role", "user")
+        
+        if not username or not password:
+            self._send_json({"status": "error", "message": "Username and password required"})
+            return
+
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        try:
+            password_hash = hash_password(password)
+            with sqlite3.connect(db_path) as conn:
+                c = conn.cursor()
+                c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                         (username, password_hash, role))
+                conn.commit()
+            self._send_json({"status": "ok", "message": "User created"})
+        except sqlite3.IntegrityError:
+            self._send_json({"status": "error", "message": "Username already exists"})
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)})
+
+    def _handle_admin_users_delete(self):
+        """Delete user (Admin only)"""
+        if not self._check_admin(): return
+
+        l = int(self.headers['Content-Length'])
+        data = json.loads(self.rfile.read(l))
+        user_id = data.get("user_id")
+        
+        if not user_id:
+             self._send_json({"status": "error", "message": "User ID required"})
+             return
+             
+        # Prevent deleting self or admin? Maybe just prevent deleting the last admin, but let's keep it simple.
+        # Prevent deleting ID 1 (default admin) usually a good idea
+        if int(user_id) == 1:
+             self._send_json({"status": "error", "message": "Cannot delete default admin"})
+             return
+
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            
+        self._send_json({"status": "ok", "message": "User deleted"})
+
+    def _check_admin(self):
+        """Helper to check if current user is admin"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        token = self._get_session_token()
+        user = get_user_from_session(db_path, token)
+        
+        if not user or user["role"] != "admin":
+            self.send_response(403)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "error", "message": "Admin access required"}).encode('utf-8'))
+            return False
+        return True
+
+    def _handle_login(self):
+        """Handle login request"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        l = int(self.headers['Content-Length'])
+        data = json.loads(self.rfile.read(l))
+        
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        
+        if not username or not password:
+            self._send_json({"status": "error", "message": "Username and password required"})
+            return
+        
+        # Check credentials
+        password_hash = hash_password(password)
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, role FROM users WHERE username = ? AND password_hash = ?", 
+                     (username, password_hash))
+            res = c.fetchone()
+            
+            if not res:
+                self._send_json({"status": "error", "message": "Invalid credentials"})
+                return
+            
+            user_id, role = res
+        
+        # Create session
+        token = create_session(db_path, user_id)
+        
+        # Send response with cookie
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Set-Cookie', f'session={token}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "ok",
+            "user": {"id": user_id, "username": username, "role": role}
+        }).encode('utf-8'))
+
+    def _handle_logout(self):
+        """Handle logout request"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        token = self._get_session_token()
+        if token:
+            with sqlite3.connect(db_path) as conn:
+                c = conn.cursor()
+                c.execute("DELETE FROM sessions WHERE token = ?", (token,))
+                conn.commit()
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Set-Cookie', 'session=; Path=/; Max-Age=0')
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
+    def _handle_me(self):
+        """Get current user from session"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        token = self._get_session_token()
+        user = get_user_from_session(db_path, token)
+        
+        if user:
+            self._send_json({"status": "ok", "user": user})
+        else:
+            self.send_response(401)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "error", "message": "Not authenticated"}).encode('utf-8'))
 
     def _handle_create(self):
         l = int(self.headers['Content-Length'])

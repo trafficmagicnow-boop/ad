@@ -1,0 +1,88 @@
+# Auth handler methods - insert these into APIHandler class around line 405
+
+    def _get_session_token(self):
+        """Extract session token from cookie"""
+        cookie_header = self.headers.get('Cookie', '')
+        for cookie in cookie_header.split(';'):
+            cookie = cookie.strip()
+            if cookie.startswith('session='):
+                return cookie.split('=', 1)[1]
+        return None
+
+    def _handle_login(self):
+        """Handle login request"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        l = int(self.headers['Content-Length'])
+        data = json.loads(self.rfile.read(l))
+        
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        
+        if not username or not password:
+            self._send_json({"status": "error", "message": "Username and password required"})
+            return
+        
+        # Check credentials
+        password_hash = hash_password(password)
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, role FROM users WHERE username = ? AND password_hash = ?", 
+                     (username, password_hash))
+            res = c.fetchone()
+            
+            if not res:
+                self._send_json({"status": "error", "message": "Invalid credentials"})
+                return
+            
+            user_id, role = res
+        
+        # Create session
+        token = create_session(db_path, user_id)
+        
+        # Send response with cookie
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Set-Cookie', f'session={token}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "ok",
+            "user": {"id": user_id, "username": username, "role": role}
+        }).encode('utf-8'))
+
+    def _handle_logout(self):
+        """Handle logout request"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        token = self._get_session_token()
+        if token:
+            # Delete session from DB
+            with sqlite3.connect(db_path) as conn:
+                c = conn.cursor()
+                c.execute("DELETE FROM sessions WHERE token = ?", (token,))
+                conn.commit()
+        
+        # Clear cookie
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Set-Cookie', 'session=; Path=/; Max-Age=0')
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
+    def _handle_me(self):
+        """Get current user from session"""
+        storage_dir = os.environ.get("STORAGE_PATH", ".")
+        db_path = os.path.join(storage_dir, "adw.db")
+        
+        token = self._get_session_token()
+        user = get_user_from_session(db_path, token)
+        
+        if user:
+            self._send_json({"status": "ok", "user": user})
+        else:
+            self.send_response(401)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "error", "message": "Not authenticated"}).encode('utf-8'))
