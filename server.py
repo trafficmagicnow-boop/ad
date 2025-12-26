@@ -162,7 +162,7 @@ def syncer_loop():
                             if delta > 0.001:
                                 # Generate unique transaction ID for this partial update (upsell)
                                 txid = f"{clickid}-{int(time.time())}"
-                                pb_url = f"https://s2s.skro.eu/postback?clickid={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=autosync"
+                                pb_url = f"https://skrotrack.com/postback?clickId={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=autosync"
                                 try:
                                     urllib.request.urlopen(pb_url, context=ctx)
                                     count += 1
@@ -174,6 +174,17 @@ def syncer_loop():
                                     print(f"   -> {log_msg}")
                                 except Exception as e:
                                     print(f"   -> Skro Req Failed: {e}")
+                                    
+# ... verification of context for second chunk ...
+
+        # Type-specific fields based on docs examples
+        if payload["postback"] == "s2s":
+             # For S2S, 'pixel_token' holds the Postback URL
+             # Example input only showed pixel_token
+             pt = data.get("pixel_token", "")
+             if not pt:
+                 pt = "https://skrotrack.com/postback?clickId={clickid}&payout={revenue}"
+             payload["pixel_token"] = pt
 
             if updated_state:
                 # Save state to file
@@ -250,7 +261,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
              # Example input only showed pixel_token
              pt = data.get("pixel_token", "")
              if not pt:
-                 pt = "https://s2s.skro.eu/postback?clickid={clickid}&payout={revenue}"
+                 pt = "https://skrotrack.com/postback?clickId={clickid}&payout={revenue}"
              payload["pixel_token"] = pt
              
              # Optionally send pixel_event if you want defaults, but example omitted it for input.
