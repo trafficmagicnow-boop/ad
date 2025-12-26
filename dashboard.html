@@ -147,11 +147,19 @@
             <div class="row">
                 <div class="col">
                     <label>Offer (ID)</label>
-                    <input id="oInp" placeholder="e.g. 247_nurse">
+                    <select id="oSel">
+                        <option value="">-- Loading --</option>
+                    </select>
+                    <label style="margin-top:5px;font-size:9px;">Or Manual:</label>
+                    <input id="oInp" placeholder="e.g. 247_nurse" style="font-size:11px;padding:5px;">
                 </div>
                 <div class="col">
                     <label>Article (Site Key)</label>
-                    <input id="aInp" placeholder="e.g. Site123">
+                    <select id="aSel">
+                        <option value="">-- Loading --</option>
+                    </select>
+                    <label style="margin-top:5px;font-size:9px;">Or Manual:</label>
+                    <input id="aInp" placeholder="e.g. Site123" style="font-size:11px;padding:5px;">
                 </div>
             </div>
 
@@ -234,12 +242,41 @@
             document.getElementById('pixelFields').style.display = document.getElementById('pbType').value === 's2s' ? 'none' : 'block';
         }
 
+        // Populate dropdowns from API
+        async function loadData() {
+            try {
+                const res = await fetch('/api/data').then(r => r.json());
+                const oSel = document.getElementById('oSel');
+                const aSel = document.getElementById('aSel');
+
+                if (res.offers) {
+                    oSel.innerHTML = '<option value="">-- Select Offer --</option>';
+                    res.offers.forEach(o => {
+                        const opt = document.createElement('option');
+                        opt.value = o.id;
+                        opt.textContent = o.name || o.id;
+                        oSel.appendChild(opt);
+                    });
+                }
+
+                if (res.articles) {
+                    aSel.innerHTML = '<option value="">-- Select Article --</option>';
+                    res.articles.forEach(a => {
+                        const opt = document.createElement('option');
+                        opt.value = a.id;
+                        opt.textContent = a.name || a.id;
+                        aSel.appendChild(opt);
+                    });
+                }
+            } catch (e) { console.error("Load error", e); }
+        }
+
         async function createLink() {
             const payload = {
-                offer: document.getElementById('oInp').value,
-                article: document.getElementById('aInp').value,
+                offer: document.getElementById('oSel').value || document.getElementById('oInp').value,
+                article: document.getElementById('aSel').value || document.getElementById('aInp').value,
                 name: document.getElementById('cName').value,
-                title: document.getElementById('cName').value, // Add title field
+                title: document.getElementById('cName').value,
                 referrerAdCreative: document.getElementById('refCr').value,
                 keywords: document.getElementById('kws').value,
                 postback_type: document.getElementById('pbType').value,
@@ -292,6 +329,7 @@
         }
 
         setInterval(checkStatus, 5000); // Poll status every 5s
+        loadData();
         checkStatus();
         loadHistory();
     </script>
