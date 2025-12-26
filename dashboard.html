@@ -283,31 +283,32 @@
             </div>
         </div>
 
-        <!-- Admin Panel -->
+        <!-- Admin Panel (FORCE VISIBLE FOR TEST) -->
         <div id="adminPanel" class="full-width card"
-            style="display:none; border: 2px solid #007bff; margin-bottom: 20px; background: #f0f7ff;">
-            <h2 style="color:#007bff; display:flex; justify-content:space-between;">
-                👑 Admin Control Panel
-                <button onclick="loadUsers()" style="width:auto; padding:5px 10px; font-size:12px; margin:0;">🔄 Refresh
-                    List</button>
+            style="display:none; border: 5px solid #007bff; margin-bottom: 20px; background: #f0f7ff;">
+            <h2 style="color:#007bff; display:flex; justify-content:space-between; font-size: 24px;">
+                👑 ADMIN PANEL - USER MANAGEMENT 👑
+                <button onclick="loadUsers()"
+                    style="width:auto; padding:5px 10px; font-size:14px; margin:0; background:#007bff;">🔄 REFRESH
+                    USERS</button>
             </h2>
 
-            <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:20px;">
+            <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:20px;">
                 <!-- User List -->
-                <div style="background:white; padding:15px; border-radius:8px; border:1px solid #cce5ff;">
-                    <h3 style="margin-top:0;">Active Users</h3>
-                    <table style="width:100%; border-collapse: collapse; font-size:13px;">
+                <div style="background:white; padding:15px; border-radius:8px; border:2px solid #007bff;">
+                    <h3 style="margin-top:0;">User List (Should show 'admin')</h3>
+                    <table style="width:100%; border-collapse: collapse; font-size:14px;">
                         <thead>
-                            <tr style="background:#f8f9fa; text-align:left;">
+                            <tr style="background:#e9ecef; text-align:left;">
                                 <th style="padding:10px; border-bottom:2px solid #dee2e6;">ID</th>
-                                <th style="padding:10px; border-bottom:2px solid #dee2e6;">Username</th>
+                                <th style="padding:10px; border-bottom:2px solid #dee2e6;">User</th>
                                 <th style="padding:10px; border-bottom:2px solid #dee2e6;">Role</th>
                                 <th style="padding:10px; border-bottom:2px solid #dee2e6;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="userListBody">
                             <tr>
-                                <td colspan="4" style="padding:20px; text-align:center; color:#666;">Loading users...
+                                <td colspan="4" style="padding:20px; text-align:center;">Checking server for users...
                                 </td>
                             </tr>
                         </tbody>
