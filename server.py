@@ -109,34 +109,83 @@ def scraper_loop():
 
 def syncer_loop():
     """Background loop to sync with Skro."""
+    # Load sync state to prevent duplicates
+    sync_state = {}
+    state_file = "sync_state.json"
+    if os.path.exists(state_file):
+        try:
+            with open(state_file, "r") as f: sync_state = json.load(f)
+        except: pass
+
     while True:
         try:
-            print(">>> Auto-Sync: Fetching daily stats...")
+            print(">>> Auto-Sync: Fetching stats by ClickID (sub1)...")
             today = datetime.datetime.now().strftime("%d.%m.%Y")
+            # CRITICAL: Group by sub1 to get revenue PER CLICK_ID
             payload = {
                 "date_start": today, "date_end": today,
-                "groups": ["campaign"], # This is subid/clickid
-                "timezone": "Europe/Kyiv"
+                "groups": ["sub1"], 
+                "timezone": "Europe/Kyiv",
+                "limit": 500
             }
             resp = api_req(URL_ACTION, "/panel/stats", payload)
             
             count = 0
+            updated_state = False
+            
             if resp and resp.get("status") == "ok":
                 lst = resp.get("data", {}).get("list", []) or []
                 for row in lst:
-                    subid = row.get("groups", [None])[0] or row.get("group")
-                    rev = float(row.get("revenue", 0))
-                    if subid and rev > 0:
-                        pb_url = f"https://s2s.skro.eu/postback?clickid={subid}&payout={rev}&txt=autosync"
-                        try:
-                            urllib.request.urlopen(pb_url, context=ctx)
-                            count += 1
-                            local_cache["sync_log"].insert(0, f"[{datetime.datetime.now().strftime('%H:%M')}] Synced {subid} (${rev})")
-                        except: pass
+                    # sub1 is our clickid
+                    groups = row.get("groups")
+                    clickid = None
+                    if isinstance(groups, list) and len(groups) > 0:
+                        clickid = groups[0]
+                    elif isinstance(groups, dict):
+                         clickid = groups.get("sub1")
+                    
+                    if not clickid:
+                        # Fallback parsing
+                        clickid = row.get("sub1") or row.get("group")
+                        
+                    current_rev = float(row.get("revenue", 0))
+                    
+                    if clickid and current_rev > 0:
+                        prev_rev = sync_state.get(clickid, 0.0)
+                        
+                        # Only send if we have NEW revenue
+                        if current_rev > prev_rev:
+                            delta = current_rev - prev_rev
+                            
+                            # Sanity check: don't sync tiny float diffs
+                            if delta > 0.001:
+                                pb_url = f"https://s2s.skro.eu/postback?clickid={clickid}&payout={delta}&txt=autosync"
+                                try:
+                                    urllib.request.urlopen(pb_url, context=ctx)
+                                    count += 1
+                                    # Update state
+                                    sync_state[clickid] = current_rev
+                                    updated_state = True
+                                    log_msg = f"[{datetime.datetime.now().strftime('%H:%M')}] Synced {clickid} (+${delta:.2f})"
+                                    local_cache["sync_log"].insert(0, log_msg)
+                                    print(f"   -> {log_msg}")
+                                except Exception as e:
+                                    print(f"   -> Skro Req Failed: {e}")
+
+            if updated_state:
+                # Save state to file
+                try:
+                    with open(state_file, "w") as f:
+                        json.dump(sync_state, f)
+                except: pass
             
             local_cache["last_sync"] = datetime.datetime.now().strftime("%H:%M:%S")
-            local_cache["sync_log"] = local_cache["sync_log"][:20] # Keep 20 entries
-            print(f">>> Auto-Sync Finished: {count} events.")
+            local_cache["sync_log"] = local_cache["sync_log"][:50] 
+            if count > 0:
+                print(f">>> Auto-Sync Finished: {count} new conversions synced.")
+            else:
+                print(">>> Auto-Sync: No new conversions.")
+                
         except Exception as e:
             print(f"Syncer Error: {e}")
         
