@@ -283,24 +283,34 @@
             </div>
         </div>
 
-        <!-- Admin Panel (Hidden by default) -->
-        <div id="adminPanel" class="full-width card" style="display:none; border-top: 4px solid #dc3545;">
-            <h2>👑 Admin Panel - User Management</h2>
+        <!-- Admin Panel -->
+        <div id="adminPanel" class="full-width card"
+            style="display:none; border: 2px solid #007bff; margin-bottom: 20px; background: #f0f7ff;">
+            <h2 style="color:#007bff; display:flex; justify-content:space-between;">
+                👑 Admin Control Panel
+                <button onclick="loadUsers()" style="width:auto; padding:5px 10px; font-size:12px; margin:0;">🔄 Refresh
+                    List</button>
+            </h2>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:20px;">
                 <!-- User List -->
-                <div>
-                    <h3>Users List</h3>
+                <div style="background:white; padding:15px; border-radius:8px; border:1px solid #cce5ff;">
+                    <h3 style="margin-top:0;">Active Users</h3>
                     <table style="width:100%; border-collapse: collapse; font-size:13px;">
                         <thead>
                             <tr style="background:#f8f9fa; text-align:left;">
-                                <th style="padding:8px; border-bottom:1px solid #ddd;">ID</th>
-                                <th style="padding:8px; border-bottom:1px solid #ddd;">Username</th>
-                                <th style="padding:8px; border-bottom:1px solid #ddd;">Role</th>
-                                <th style="padding:8px; border-bottom:1px solid #ddd;">Action</th>
+                                <th style="padding:10px; border-bottom:2px solid #dee2e6;">ID</th>
+                                <th style="padding:10px; border-bottom:2px solid #dee2e6;">Username</th>
+                                <th style="padding:10px; border-bottom:2px solid #dee2e6;">Role</th>
+                                <th style="padding:10px; border-bottom:2px solid #dee2e6;">Action</th>
                             </tr>
                         </thead>
-                        <tbody id="userListBody"></tbody>
+                        <tbody id="userListBody">
+                            <tr>
+                                <td colspan="4" style="padding:20px; text-align:center; color:#666;">Loading users...
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
 
@@ -485,25 +495,36 @@
 
         // Admin functions
         async function loadUsers() {
+            const tbody = document.getElementById('userListBody');
             try {
                 const res = await fetch('/api/admin/users').then(r => r.json());
+                console.log("Admin Users List Response:", res);
+
                 if (res.status === 'ok') {
-                    const tbody = document.getElementById('userListBody');
                     tbody.innerHTML = '';
+                    if (!res.users || res.users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center;">No users found in database.</td></tr>';
+                        return;
+                    }
                     res.users.forEach(u => {
                         tbody.innerHTML += `
                             <tr style="border-bottom:1px solid #eee;">
                                 <td style="padding:8px;">${u.id}</td>
-                                <td style="padding:8px;">${u.username}</td>
+                                <td style="padding:8px; font-weight:bold;">${u.username}</td>
                                 <td style="padding:8px;"><span style="background:${u.role === 'admin' ? '#ffd700' : '#e2e6ea'}; padding:2px 6px; border-radius:4px; font-size:11px;">${u.role}</span></td>
                                 <td style="padding:8px;">
-                                    ${u.id !== 1 ? `<button onclick="deleteUser(${u.id})" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0; width:auto;">Delete</button>` : ''}
+                                    ${u.id !== 1 ? `<button onclick="deleteUser(${u.id})" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0; width:auto;">Delete</button>` : '<span style="color:#999;font-size:11px;">System</span>'}
                                 </td>
                             </tr>
                         `;
                     });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:red;">API Error: ${res.message}</td></tr>`;
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error("Load users failed", e);
+                tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:red;">Network Error: ${e.message}</td></tr>`;
+            }
         }
 
         async function createUser() {
