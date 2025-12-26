@@ -226,7 +226,11 @@
                 style="display:none; background:#f8f9fa; padding:10px; border-radius:5px; margin-top:10px; border:1px solid #eee;">
                 <label>Pixel ID</label><input id="pixId" placeholder="000000000">
                 <label>Pixel Token / Access Token</label><input id="pixTok" placeholder="Token string">
-                <label>Event</label><input id="pixEv" value="Lead">
+                <label>Event</label>
+                <select id="pixEv">
+                    <option value="">-- Select Event --</option>
+                    <option value="Lead">Lead</option>
+                </select>
             </div>
             <!-- If S2S selected, show helper text -->
             <div id="s2sFields" style="margin-top:10px;">
@@ -308,6 +312,7 @@
                 const res = await fetch('/api/data').then(r => r.json());
                 const oSel = document.getElementById('oSel');
                 const aSel = document.getElementById('aSel');
+                const pEvt = document.getElementById('pixEv');
 
                 if (res.offers && res.offers.length) {
                     oSel.innerHTML = '<option value="">-- Select Offer --</option>';
@@ -321,6 +326,17 @@
                     res.articles.forEach(a => {
                         const opt = document.createElement('option'); opt.value = a.id; opt.textContent = a.name || a.id; aSel.appendChild(opt);
                     });
+                }
+
+                // Populate pixel events dropdown
+                if (res.pixel_events && res.pixel_events.length) {
+                    pEvt.innerHTML = '<option value="">-- Select Event --</option>';
+                    res.pixel_events.forEach(e => {
+                        const opt = document.createElement('option'); opt.value = e.id; opt.textContent = e.name || e.id; pEvt.appendChild(opt);
+                    });
+                } else {
+                    // Fallback events if API doesn't return any
+                    pEvt.innerHTML = '<option value="">-- Select Event --</option><option value="Lead">Lead</option><option value="Purchase">Purchase</option><option value="ViewContent">ViewContent</option>';
                 }
             } catch (e) { console.error(e); }
         }

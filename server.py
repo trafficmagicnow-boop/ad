@@ -25,6 +25,7 @@ ctx.verify_mode = ssl.CERT_NONE
 local_cache = {
     "offers": [],
     "articles": [],
+    "pixel_events": [],
     "last_sync": "Never",
     "sync_log": []
 }
@@ -88,8 +89,20 @@ def scraper_loop():
                         if found:
                             local_cache["offers"] = found
                             print(f">>> Updated offers from API: {len(found)} items (Auto-discovered)")
+                    
+                    # --- SCRAPE PIXEL EVENTS ---
+                    # Same endpoint also contains pixel_event filter
+                    events_filter = next((f for f in filters if f.get("name") == "pixel_event"), None)
+                    if events_filter and "values" in events_filter:
+                        events_found = []
+                        for item in events_filter["values"]:
+                            events_found.append({"id": item["key"], "name": item["value"]})
+                        
+                        if events_found:
+                            local_cache["pixel_events"] = events_found
+                            print(f">>> Updated pixel events from API: {len(events_found)} items (Auto-discovered)")
                 except Exception as e:
-                    print(f"Offer parse error: {e}")
+                    print(f"Offer/Events parse error: {e}")
 
             # Fallback to config if API returned nothing
             if not local_cache["offers"] and os.path.exists("config.json"):
@@ -254,7 +267,11 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/data":
-            self._send_json({"offers": local_cache["offers"], "articles": local_cache["articles"]})
+            self._send_json({
+                "offers": local_cache["offers"], 
+                "articles": local_cache["articles"],
+                "pixel_events": local_cache["pixel_events"]
+            })
         elif parsed.path == "/api/status":
             self._send_json({"last_sync": local_cache["last_sync"], "log": local_cache["sync_log"]})
         elif parsed.path == "/" or parsed.path == "/index.html":
