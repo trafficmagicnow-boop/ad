@@ -64,28 +64,36 @@ def scraper_loop():
     while True:
         try:
             print(">>> Background Scraper: Checking API for updates...")
-            # Try finding offers on both domains
-            for domain in [URL_INFO, URL_ACTION]:
-                ep_variants = ["/panel/offers", "/panel/list_offers", "/panel/all_offers"]
-                found = []
-                for ep in ep_variants:
-                    r = api_req(domain, ep, {"page":1, "limit":500})
-                    if not r or r.get("status") != "ok": r = api_req(domain, ep, {})
+            
+            # --- SCRAPE OFFERS ---
+            # We found that /panel/offer/list returns a filter structure with all offers!
+            r = api_req(URL_ACTION, "/panel/offer/list")
+            if r and r.get("status") == "ok":
+                try:
+                    # Structure: data -> list -> [0] -> values -> [{key, value}, ...]
+                    filters = r.get("data", {}).get("list", [])
+                    offers_filter = next((f for f in filters if f.get("name") == "offer"), None)
                     
-                    if r and r.get("status") == "ok":
-                        data = r.get("data", {}).get("list", []) or r.get("data") or []
-                        if isinstance(data, list):
-                            for i in data:
-                                oid = i.get("id") or i.get("offer_id") or i.get("name")
-                                nm = i.get("name") or i.get("title") or oid
-                                if oid: found.append({"id":oid, "name":nm})
-                            if found: 
-                                local_cache["offers"] = found
-                                print(f">>> Updated offers from API: {len(found)} items")
-                                break
-                if found: break
+                    if offers_filter and "values" in offers_filter:
+                        found = []
+                        for item in offers_filter["values"]:
+                            found.append({"id": item["key"], "name": item["value"]})
+                        
+                        if found:
+                            local_cache["offers"] = found
+                            print(f">>> Updated offers from API: {len(found)} items (Auto-discovered)")
+                except Exception as e:
+                    print(f"Offer parse error: {e}")
 
-            # Try finding sites
+            # Fallback to config if API returned nothing
+            if not local_cache["offers"] and os.path.exists("config.json"):
+                 try: 
+                    with open("config.json", "r", encoding="utf-8") as f:
+                        local_cache["offers"] = json.load(f).get("offers", [])
+                 except: pass
+
+            # --- SCRAPE SITES/ARTICLES ---
+            # Try finding sites (similar logic might apply, but let's stick to /panel/sites first)
             for domain in [URL_INFO, URL_ACTION]:
                 r = api_req(domain, "/panel/sites", {"limit":500})
                 if r and r.get("status") == "ok":
