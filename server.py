@@ -407,7 +407,6 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             user = get_user_from_session(db_path, token)
             
             if user:
-            if user:
                 # Serve dashboard
                 # Clean v3.0 serving
                 if not os.path.exists("dashboard.html"):
