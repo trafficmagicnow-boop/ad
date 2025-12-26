@@ -1,9 +1,8 @@
 import http.server
 import socketserver
 import json
-import urllib.parse
 import urllib.request
-import urllib.error
+import urllib.parse
 import ssl
 import os
 import sys
@@ -13,32 +12,40 @@ import time
 
 # --- CONFIGURATION ---
 TOKEN = "5a4fb29a30fb14b3c7bbea8333056f86"
-URL_ACTION = "https://api.adw.net"  # Stats, Create
-URL_INFO   = "https://api.ads.com"  # List Links, Get Link
+URL_ACTION = "https://api.adw.net"  # For actions (create, stats)
+URL_INFO = "https://api.ads.com"    # For info (offers, links)
 
-# SYNC CONFIG
-SYNC_INTERVAL = 300 # 5 minutes
-local_cache = {"offers": [], "articles": [], "last_sync": "Never", "sync_log": []}
-
+# --- SSL CONTEXT (Unsafe for dev) ---
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
-def api_req(domain, endpoint, params=None, method='POST'):
+# --- GLOBAL CACHE ---
+local_cache = {
+    "offers": [],
+    "articles": [],
+    "last_sync": "Never",
+    "sync_log": []
+}
+
+SYNC_INTERVAL = 300 # 5 minutes
+
+def api_req(domain, endpoint, data=None):
     url = f"{domain}{endpoint}"
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json"
-    }
     try:
-        req = urllib.request.Request(url, headers=headers, method=method)
-        if params is not None:
-             req.data = json.dumps(params).encode('utf-8')
+        headers = {
+            "Authorization": f"Bearer {TOKEN}",
+            "Content-Type": "application/json"
+        }
+        if data is not None:
+            req = urllib.request.Request(url, data=json.dumps(data).encode(), headers=headers)
+        else:
+            req = urllib.request.Request(url, headers=headers)
         
-        with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+        with urllib.request.urlopen(req, context=ctx, timeout=15) as r:
+            return json.loads(r.read().decode())
     except Exception as e:
-        print(f"[API Error] {url}: {e}")
+        print(f"API Error ({endpoint}): {e}")
         return {"status": "error", "message": str(e)}
 
 def scraper_loop():
@@ -93,10 +100,10 @@ def scraper_loop():
         time.sleep(3600) # Once per hour is enough for offers
 
 def syncer_loop():
-    """Background thread to sync stats from Adw to Skro."""
+    """Background loop to sync with Skro."""
     while True:
         try:
-            print(f">>> Auto-Sync: Checking conversions...")
+            print(">>> Auto-Sync: Fetching daily stats...")
             today = datetime.datetime.now().strftime("%d.%m.%Y")
             payload = {
                 "date_start": today, "date_end": today,
@@ -165,7 +172,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         while len(kw_list) < 3:
             kw_list.append(f"keyword{len(kw_list)+1}")
         
-        # Doc fields mapping - use title from data or fallback to name
+        # Doc fields mapping - Match exact API requirements for TikTok
         payload = {
             "name": data.get("name", ""),
             "offer": data.get("offer", ""),
@@ -175,13 +182,14 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             "pixel_id": data.get("pixel_id", ""),
             "pixel_token": data.get("pixel_token", ""),
             "pixel_event": data.get("pixel_event", ""),
-            "referrerAdCreative": data.get("referrerAdCreative") or "organic",  # Required by API!
-            "direct": data.get("article") or "default_site"  # API requires non-empty value!
+            "referrerAdCreative": data.get("referrerAdCreative") or "organic",
+            "site_key": data.get("article") or "default_site"  # Explicitly 'site_key' per docs
         }
         
-        # Skro default for S2S
+        # Handle S2S Defaults (Only for S2S type)
         if payload["postback"] == "s2s":
-            if not payload["pixel_token"]: payload["pixel_token"] = "https://s2s.skro.eu/postback?clickid={clickid}&payout={revenue}"
+            if not payload["pixel_token"]: 
+                payload["pixel_token"] = "https://s2s.skro.eu/postback?clickid={clickid}&payout={revenue}"
             if not payload["pixel_event"]: payload["pixel_event"] = "lead"
 
         resp = api_req(URL_ACTION, "/panel/link_create", payload)
@@ -189,64 +197,46 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             d = resp.get("data", {})
             lid = d.get("link_id") or d.get("link_facebook_id") or d.get("link_tiktok_id")
             url = d.get("url", "")
-            # Append subid for Skro
-            if payload["postback"] == "s2s":
+            
+            # Append sub1 ONLY for S2S links (TikTok/FB track via pixels)
+            if payload["postback"] == "s2s" and "sub1=" not in url:
                 url += ("&" if "?" in url else "?") + "sub1={clickid}"
+                
             self._send_json({"status": "ok", "url": url, "api_id": lid, "api_status": d.get("status")})
         else:
             self._send_json({"status": "error", "debug": resp})
 
     def _handle_history(self):
         resp = api_req(URL_INFO, "/panel/links", {"page": 1})
-        links = []
         if resp and resp.get("status") == "ok":
             lst = resp.get("data", {}).get("list", []) or []
-            for i in lst:
-                links.append({"id": i.get("link_id"), "name": i.get("name"), "url": i.get("url"), "offer": i.get("offer"), "date": i.get("date_create")})
-        self._send_json({"status": "ok", "links": links})
+            normalized = []
+            for item in lst[:10]: # Check last 10
+                normalized.append({
+                    "date": item.get("date_create", ""),
+                    "id": item.get("link_id") or item.get("id", ""),
+                    "name": item.get("name", ""),
+                    "offer": item.get("offer", ""),
+                    "url": item.get("url", "")
+                })
+            self._send_json({"links": normalized})
+        else:
+            self._send_json({"links": []})
 
     def _handle_get_stats(self):
-        """Fetch raw stats from Adw API for display in dashboard."""
         today = datetime.datetime.now().strftime("%d.%m.%Y")
-        payload = {
-            "date_start": today,
-            "date_end": today,
-            "groups": ["offer", "campaign"],
-            "timezone": "Europe/Kyiv"
-        }
+        payload = {"date_start": today, "date_end": today, "timezone": "Europe/Kyiv"}
         resp = api_req(URL_ACTION, "/panel/stats", payload)
-        self._send_json(resp if resp else {"status": "error", "message": "Stats fetch failed"})
+        self._send_json(resp)
 
     def _handle_manual_sync(self):
-        """Manually trigger sync and return count."""
-        try:
-            today = datetime.datetime.now().strftime("%d.%m.%Y")
-            payload = {
-                "date_start": today, "date_end": today,
-                "groups": ["campaign"],
-                "timezone": "Europe/Kyiv"
-            }
-            resp = api_req(URL_ACTION, "/panel/stats", payload)
-            count = 0
-            if resp and resp.get("status") == "ok":
-                lst = resp.get("data", {}).get("list", []) or []
-                for row in lst:
-                    subid = row.get("groups", [None])[0] or row.get("group")
-                    rev = float(row.get("revenue", 0))
-                    if subid and rev > 0:
-                        pb_url = f"https://s2s.skro.eu/postback?clickid={subid}&payout={rev}&txt=manualsync"
-                        try:
-                            urllib.request.urlopen(pb_url, context=ctx)
-                            count += 1
-                        except: pass
-            self._send_json({"status": "ok", "synced": count})
-        except Exception as e:
-            self._send_json({"status": "error", "message": str(e)})
+        # Trigger one iteration of syncer logic in a new thread to avoid blocking
+        threading.Thread(target=syncer_loop, daemon=True).start()
+        self._send_json({"status": "triggered", "message": "Sync started in background"})
 
     def _send_json(self, d):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Type", "application/json")
+        self.send_header('Content-type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(d).encode('utf-8'))
 
