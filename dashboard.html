@@ -3,21 +3,34 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Adw Ultimate Panel + AutoSync</title>
+    <title>Adw Manager - Dashboard</title>
     <style>
+        :root {
+            --primary: #007bff;
+            --primary-dark: #0056b3;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #333;
+        }
+
         body {
-            background: #f0f2f5;
-            color: #333;
-            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
-            padding: 20px;
         }
 
         .container {
-            width: 900px;
+            width: 100%;
+            max-width: 1000px;
             display: grid;
-            grid-template-columns: 1.5fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
         }
 
@@ -26,17 +39,19 @@
         }
 
         .card {
-            background: white;
+            background: var(--card-bg);
             padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         h2 {
-            border-bottom: 2px solid #007bff;
+            border-bottom: 2px solid var(--primary);
             padding-bottom: 10px;
-            color: #007bff;
+            color: var(--primary);
             margin-top: 0;
+            font-size: 1.5rem;
         }
 
         h3 {
@@ -49,42 +64,53 @@
             margin: 10px 0 5px;
             font-weight: 600;
             color: #555;
+            font-size: 14px;
         }
 
         input,
-        select {
+        select,
+        textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin-bottom: 5px;
             border: 1px solid #ddd;
-            border-radius: 5px;
+            border-radius: 8px;
             box-sizing: border-box;
-            background: #f8f9fa;
+            background: #fafafa;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
         }
 
         .manual-input-toggle {
             float: right;
             font-size: 11px;
             cursor: pointer;
-            color: #007bff;
+            color: var(--primary);
             text-decoration: underline;
         }
 
         button {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #007bff, #0056b3);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
-            transition: transform 0.1s, box-shadow 0.1s;
+            transition: all 0.2s;
         }
 
         button:hover {
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
         }
 
@@ -92,18 +118,53 @@
             transform: translateY(1px);
         }
 
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #ddd;
+            color: #555;
+            font-size: 12px;
+            padding: 5px 10px;
+            width: auto;
+        }
+
         #logArea {
             width: 100%;
-            height: 150px;
-            background: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 10px;
-            overflow-y: scroll;
-            font-family: monospace;
+            height: 180px;
+            background: #1e1e1e;
+            color: #dcdcdc;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
             font-size: 12px;
-            color: #333;
             box-sizing: border-box;
+            border: 1px solid #333;
+        }
+
+        #logArea div {
+            margin-bottom: 3px;
+            border-left: 3px solid #555;
+            padding-left: 8px;
+        }
+
+        #logArea .log-info {
+            border-left-color: var(--primary);
+        }
+
+        #logArea .log-success {
+            border-left-color: var(--success);
+        }
+
+        #logArea .log-error {
+            border-left-color: var(--danger);
         }
 
         table {
@@ -114,70 +175,103 @@
 
         th,
         td {
-            padding: 8px;
+            padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #eee;
             font-size: 13px;
         }
 
         th {
-            background: #f1f3f5;
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #666;
         }
 
         /* Tabs Styling */
         .tab-bar {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 12px;
             background: white;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 10px;
         }
 
         .tab-btn {
-            padding: 10px 20px;
-            background: #f8f9fa;
+            padding: 12px 24px;
+            background: transparent;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            color: #666;
+            color: var(--secondary);
             transition: all 0.2s;
             flex: 1;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: auto;
+            /* Allow flex to take over */
         }
 
-        .tab-btn i { margin-right: 8px; }
-
         .tab-btn:hover {
-            background: #e9ecef;
+            background: #f8f9fa;
             color: #333;
         }
 
         .tab-btn.active {
-            background: #007bff;
+            background: var(--primary);
             color: white;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2);
         }
 
         .tab-content {
             display: none;
-            animation: fadeIn 0.3s ease-out;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 20px;
+            animation: slideUp 0.3s ease-out;
         }
 
         .tab-content.active {
             display: grid;
         }
 
-        @keyframes fadeIn {
+        @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(5px);
+                transform: translateY(10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+
+        /* Responsive Layout */
+        @media (max-width: 800px) {
+            .tab-content {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-online {
+            background: #e8f5e9;
+            color: #2e7d32;
         }
     </style>
 </head>
@@ -185,457 +279,392 @@
 <body>
     <div class="container">
         <!-- Header -->
-        <div style="background:white; padding:20px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.05); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;" class="full-width">
+        <header class="card full-width"
+            style="display:flex; justify-content:space-between; align-items:center; padding: 15px 25px;">
             <div>
-                <h2 style="margin:0; color:#333;">🚀 Adw Manager <span
-                        style="font-size:12px; color:#999; font-weight:normal;">v3.1</span></h2>
-                <div id="status" style="margin-top:5px; color:#666; font-size:14px;">System Online</div>
+                <h1 style="margin:0; font-size: 20px; color:#333;">🚀 Adw Manager <span
+                        style="font-size:12px; color:#999; font-weight:normal;">v3.2</span></h1>
+                <div style="margin-top:4px; display:flex; align-items:center; gap:8px;">
+                    <span class="status-badge status-online">System Online</span>
+                    <span id="userInfo" style="font-size:13px; color:#666; font-weight:600;">Loading...</span>
+                </div>
             </div>
-            <div style="text-align:right;">
-                <span id="userInfo" style="margin-right:15px; font-weight:600; color:#555;">Loading...</span>
-                <button onclick="logout()"
-                    style="background:#dc3545; font-size:14px; padding:8px 15px; width:auto; display:inline-block; border-radius: 4px; border: none; color: white; cursor: pointer;">Logout</button>
-            </div>
-        </div>
+            <button onclick="logout()" class="btn-danger"
+                style="width:auto; padding:8px 15px; font-size:14px;">Logout</button>
+        </header>
 
-        <!-- Navigation Tabs -->
-        <div class="tab-bar full-width">
-            <button class="tab-btn active" onclick="switchTab('campaigns', this)">🚀 Campaigns</button>
-            <button class="tab-btn" onclick="switchTab('monitoring', this)">📊 Monitoring</button>
-            <button id="adminTabBtn" class="tab-btn" onclick="switchTab('admin', this)" style="display:none;">🛡️ Admin</button>
-        </div>
+        <!-- Navigation -->
+        <nav class="tab-bar full-width">
+            <button class="tab-btn active" id="btn-campaigns" onclick="switchTab('campaigns', this)">📋
+                Campaigns</button>
+            <button class="tab-btn" id="btn-monitoring" onclick="switchTab('monitoring', this)">📊 Monitoring</button>
+            <button class="tab-btn" id="adminTabBtn" onclick="switchTab('admin', this)" style="display:none;">🛡️
+                Admin</button>
+        </nav>
 
         <!-- TAB: Campaigns -->
-        <div id="tab-campaigns" class="tab-content active" style="grid-template-columns: 1.5fr 1fr; gap: 20px;">
-
-        <!-- TAB: Admin -->
-        <div id="tab-admin" class="tab-content full-width">
-            <div class="card" style="border-top: 3px solid #007bff; margin-bottom: 20px;">
-                <h2 style="color:#333; display:flex; justify-content:space-between; align-items:center; margin-top: 0;">
-                    <span>🛡️ Admin Controls</span>
-                    <button onclick="loadUsers()"
-                        style="background:#f8f9fa; color:#333; border:1px solid #ddd; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer;">↻
-                        Refresh</button>
-                </h2>
-
-                <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:20px;">
-                    <!-- User List -->
-                    <div style="background:#fff; border:1px solid #eee; border-radius:6px; padding:15px;">
-                        <h3 style="margin-top:0; font-size:16px; border-bottom:1px solid #eee; padding-bottom:10px;">User
-                            Management</h3>
-                        <table style="width:100%; border-collapse: collapse; font-size:13px;">
-                            <thead>
-                                <tr style="background:#f8f9fa; text-align:left; color:#666;">
-                                    <th style="padding:8px;">ID</th>
-                                    <th style="padding:8px;">User</th>
-                                    <th style="padding:8px;">Role</th>
-                                    <th style="padding:8px;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="userListBody">
-                                <tr>
-                                    <td colspan="4" style="padding:20px; text-align:center; color:#999;">Loading...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+        <main id="tab-campaigns" class="tab-content active full-width">
+            <!-- Form Card -->
+            <div class="card">
+                <h2>Create Campaign</h2>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                    <div>
+                        <label>Campaign Name</label>
+                        <input id="linkName" placeholder="Internal name">
                     </div>
-
-                    <!-- Create User -->
-                    <div style="background:#fff; border:1px solid #eee; border-radius:6px; padding:15px;">
-                        <h3 style="margin-top:0; font-size:16px; border-bottom:1px solid #eee; padding-bottom:10px;">Add New
-                            User</h3>
-
-                        <label style="font-size:13px;">Username</label>
-                        <input id="newUsername" placeholder="e.g. buyer_john" style="font-size:13px;">
-
-                        <label style="font-size:13px;">Password</label>
-                        <input id="newPassword" type="password" placeholder="•••••••" style="font-size:13px;">
-
-                        <label style="font-size:13px;">Role</label>
-                        <select id="newRole" style="font-size:13px;">
-                            <option value="user">User (Standard)</option>
-                            <option value="admin">Admin (Full Access)</option>
-                        </select>
-
-                        <button onclick="createUser()" style="background:#28a745; margin-top:10px; font-size:14px;">Create
-                            User</button>
-                        <div id="adminMsg" style="margin-top:10px; font-size:13px; min-height:20px;"></div>
+                    <div>
+                        <label>Page Title</label>
+                        <input id="title" placeholder="Meta title">
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Campaign Inputs -->
-        <div class="card">
-            <h2>Add New Campaign</h2>
-
-            <label>Name</label>
-            <input id="linkName" placeholder="Campaign name">
-
-            <label>Site <span class="manual-input-toggle" onclick="toggleInput('site')">Toggle Manual
-                    Input</span></label>
-            <select id="siteSelect"></select>
-            <input id="siteInput" placeholder="Enter site ID manually" style="display:none; background:#fffbe6;">
-
-            <label>Offer <span class="manual-input-toggle" onclick="toggleInput('offer')">Toggle Manual
-                    Input</span></label>
-            <select id="offerSelect"></select>
-            <input id="offerInput" placeholder="Enter offer ID manually" style="display:none; background:#fffbe6;">
-
-            <label>Title</label>
-            <input id="title" placeholder="Title">
-
-            <label>Ad Creative</label>
-            <input id="adCreative" placeholder="Ad Creative">
-
-            <!-- Keywords -->
-            <label>Keywords</label>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <input class="kw" placeholder="Keyword 1">
-                <input class="kw" placeholder="Keyword 2">
-                <input class="kw" placeholder="Keyword 3">
-                <input class="kw" placeholder="Keyword 4">
-                <input class="kw" placeholder="Keyword 5">
-                <input class="kw" placeholder="Keyword 6">
-                <input class="kw" placeholder="Keyword 7">
-                <input class="kw" placeholder="Keyword 8">
-                <input class="kw" placeholder="Keyword 9">
-                <input class="kw" placeholder="Keyword 10">
-            </div>
-
-            <label>Traffic Source / Pixel</label>
-            <select id="pixelSelect">
-                <option value="">No Pixel (Skro Only)</option>
-            </select>
-            <div id="pixelParams"
-                style="margin-top:10px; display:none; border:1px dashed #ccc; padding:10px; border-radius:5px;">
-                <label style="font-size:12px;">Token / ID</label>
-                <input id="pixelToken" placeholder="Pixel Token/ID">
-                <label style="font-size:12px;">Event Name (Optional)</label>
-                <input id="pixelEvent" placeholder="e.g. Purchase">
-            </div>
-
-            <label>Postback URL (Pixel Token)</label>
-            <input id="postbackUrl" readonly style="background: #e9ecef; color: #555;cursor: not-allowed;">
-
-            <button onclick="createLink()" style="margin-top:20px;">🚀 Launch Campaign</button>
-
-            <div id="result" style="margin-top:20px; word-break: break-all; color: #007bff; font-weight: bold;"></div>
-        </div>
-
-        <!-- Status & History -->
-        <div>
-            <!-- Sync Status -->
-            <div class="card" style="margin-bottom:20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h2 style="margin:0; border:none; font-size:18px;">Auto-Sync Status</h2>
-                    <span
-                        style="background:#28a745; color:white; padding:2px 8px; border-radius:4px; font-size:12px;">ACTIVE</span>
-                </div>
-
-                <div style="font-size:12px; color:#666; margin-bottom:5px;">Last Sync: <span
-                        id="lastSync">--:--:--</span></div>
-                <div id="logArea">Waiting for logs...</div>
-
-                <button onclick="triggerSync()"
-                    style="margin-top:10px; background:#dc3545; font-size:12px; padding:8px;">Trigger Manual
-                    Sync</button>
-            </div>
-
-                <!-- History -->
-                <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h2 style="margin:0; border:none; font-size:18px;">Link History</h2>
-                        <button onclick="loadHistory()"
-                            style="width:auto; padding:5px 10px; font-size:12px;">Refresh</button>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:10px;">
+                    <div>
+                        <label>Site <span class="manual-input-toggle"
+                                onclick="toggleInput('site')">Manual</span></label>
+                        <select id="siteSelect"></select>
+                        <input id="siteInput" style="display:none;" placeholder="Site ID">
                     </div>
+                    <div>
+                        <label>Offer <span class="manual-input-toggle"
+                                onclick="toggleInput('offer')">Manual</span></label>
+                        <select id="offerSelect"></select>
+                        <input id="offerInput" style="display:none;" placeholder="Offer ID">
+                    </div>
+                </div>
 
-                    <div id="historyList" style="margin-top:15px; font-size:13px;"></div>
+                <label>Ad Creative / Source</label>
+                <input id="adCreative" placeholder="e.g. facebook_ads">
+
+                <label>Keywords (Comma separated)</label>
+                <textarea id="keywordsArea" rows="2" placeholder="apple, orange, banana..."></textarea>
+
+                <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-top:15px;">
+                    <label>Postback Configuration</label>
+                    <select id="pixelSelect">
+                        <option value="">Skro Postback Only</option>
+                        <option value="custom">Custom Pixel (S2S/FB/TikTok)</option>
+                    </select>
+                    <div id="pixelParams" style="display:none; margin-top:10px;">
+                        <input id="pixelToken" placeholder="Pixel ID / Access Token" style="margin-bottom:10px;">
+                        <input id="pixelEvent" placeholder="Event Name (e.g. Lead)">
+                    </div>
+                </div>
+
+                <button onclick="createLink()" style="margin-top:20px;">🚀 Launch Link</button>
+                <div id="result" style="margin-top:15px; text-align:center;"></div>
+            </div>
+
+            <!-- History Card -->
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h2 style="margin:0; border:0;">History</h2>
+                    <button class="btn-outline" onclick="loadHistory()">↻ Refresh</button>
+                </div>
+                <div id="historyList" style="overflow-x:auto;">
+                    <table id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Name</th>
+                                <th>URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" style="text-align:center;">Loading history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
+        </main>
 
         <!-- TAB: Monitoring -->
-        <div id="tab-monitoring" class="tab-content full-width" style="grid-template-columns: 1.5fr 1fr; gap: 20px;">
+        <section id="tab-monitoring" class="tab-content full-width">
             <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h2 style="margin:0; border:none; font-size:18px;">Auto-Sync Status</h2>
-                    <span
-                        style="background:#28a745; color:white; padding:2px 8px; border-radius:4px; font-size:12px;">ACTIVE</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h2 style="margin:0; border:0;">System Logs</h2>
+                    <button class="btn-outline" onclick="triggerSync()"
+                        style="background:var(--danger); color:white; border:none;">Manual Sync</button>
                 </div>
-
-                <div style="font-size:12px; color:#666; margin-bottom:5px;">Last Sync: <span
-                        id="lastSync">--:--:--</span></div>
-                <div id="logArea">Waiting for logs...</div>
-
-                <button onclick="triggerSync()"
-                    style="margin-top:10px; background:#dc3545; font-size:12px; padding:8px;">Trigger Manual
-                    Sync</button>
+                <div style="font-size:12px; color:#666; margin-bottom:10px;">Last Sync Attempt: <span
+                        id="lastSync">Never</span></div>
+                <div id="logArea">Initializing logs...</div>
             </div>
 
-            <!-- Stats & Additional Monitor Info -->
             <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin:0; border:none; font-size:18px;">Quick Stats (24h)</h2>
-                    <span id="statsLoading" style="font-size:11px; color:#999; display:none;">Updating...</span>
-                </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                    <div style="background:#e3f2fd; padding:10px; border-radius:5px; text-align:center;">
-                        <div style="font-size:12px; color:#666;">Campaigns</div>
-                        <div id="statCampaigns" style="font-size:20px; font-weight:bold; color:#007bff;">0</div>
+                <h2>Quick Stats</h2>
+                <div style="display:grid; grid-template-columns: 1fr; gap:15px; margin-top:15px;">
+                    <div style="background:#e3f2fd; padding:15px; border-radius:10px; text-align:center;">
+                        <div style="color:#1976d2; font-size:14px; margin-bottom:5px;">Today's Links</div>
+                        <div id="statCampaigns" style="font-size:32px; font-weight:bold; color:#0d47a1;">0</div>
                     </div>
-                    <div style="background:#e8f5e9; padding:10px; border-radius:5px; text-align:center;">
-                        <div style="font-size:12px; color:#666;">Conversions</div>
-                        <div id="statConversions" style="font-size:20px; font-weight:bold; color:#28a745;">0</div>
+                    <div style="background:#e8f5e9; padding:15px; border-radius:10px; text-align:center;">
+                        <div style="color:#2e7d32; font-size:14px; margin-bottom:5px;">Conversions</div>
+                        <div id="statConversions" style="font-size:32px; font-weight:bold; color:#1b5e20;">0</div>
                     </div>
                 </div>
+                <button class="btn-outline" onclick="getStats()" style="margin-top:15px; width:100%;">Force Update
+                    Stats</button>
             </div>
-        </div>
-        </div>
+        </section>
+
+        <!-- TAB: Admin -->
+        <section id="tab-admin" class="tab-content full-width">
+            <div class="card">
+                <h2>User Management</h2>
+                <table id="userTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userListBody">
+                        <tr>
+                            <td colspan="4" style="text-align:center;">Loading users...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h2>Add New User</h2>
+                <label>Username</label>
+                <input id="newUsername" placeholder="Enter username">
+                <label>Password</label>
+                <input id="newPassword" type="password" placeholder="Enter password">
+                <label>Access Role</label>
+                <select id="newRole">
+                    <option value="user">Standard User</option>
+                    <option value="admin">Administrator</option>
+                </select>
+                <button onclick="createUser()" class="btn-success" style="margin-top:15px;">Add User</button>
+                <div id="adminMsg" style="margin-top:10px; font-size:13px; font-weight:600;"></div>
+            </div>
+        </section>
     </div>
 
     <script>
-        let config = {};
+        // Global State
+        let config = { offers: [], pixel_events: [] };
 
-        // Auth functions
+        // Debugging Helper
+        function debug(msg, type = 'info') {
+            const log = document.getElementById('logArea');
+            if (log) {
+                const div = document.createElement('div');
+                div.className = 'log-' + type;
+                div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                log.prepend(div);
+            }
+            console.log(`[${type}] ${msg}`);
+        }
+
+        // Logic
         async function getCurrentUser() {
             try {
                 const res = await fetch('/api/me');
                 if (res.status === 200) {
                     const data = await res.json();
                     if (data.status === 'ok') {
-                        const user = data.user;
-                        document.getElementById('userInfo').textContent = `${user.username}`;
-
-                        // Show admin toggle if admin
-                        if (user.role === 'admin') {
-                            document.getElementById('adminTabBtn').style.display = 'inline-block';
+                        document.getElementById('userInfo').textContent = data.user.username;
+                        if (data.user.role === 'admin') {
+                            document.getElementById('adminTabBtn').style.display = 'flex';
                         }
+                        return data.user;
                     }
                 } else {
                     window.location.href = '/login.html';
                 }
             } catch (e) {
-                console.error("Auth check failed", e);
+                debug("Auth check failed", 'error');
             }
+            return null;
         }
 
         function switchTab(tabName, btn) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            // Deactivate all buttons
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove('active');
-            });
-            // Show selected tab
-            document.getElementById('tab-' + tabName).classList.add('active');
-            btn.classList.add('active');
+            debug(`Switching to tab: ${tabName}`);
+            // Hide all
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 
-            // Specialized refreshers
+            // Show target
+            const target = document.getElementById('tab-' + tabName);
+            if (target) {
+                target.classList.add('active');
+                btn.classList.add('active');
+            }
+
+            // Init actions
             if (tabName === 'admin') loadUsers();
-            if (tabName === 'monitoring') {
-                updateStatus();
-                getStats();
+            if (tabName === 'monitoring') { updateStatus(); getStats(); }
+        }
+
+        async function createLink() {
+            const resDiv = document.getElementById('result');
+            resDiv.innerHTML = '<span style="color:var(--primary)">Processing...</span>';
+
+            try {
+                const site = document.getElementById('siteInput').style.display === 'none'
+                    ? document.getElementById('siteSelect').value : document.getElementById('siteInput').value;
+                const offer = document.getElementById('offerInput').style.display === 'none'
+                    ? document.getElementById('offerSelect').value : document.getElementById('offerInput').value;
+
+                const kwRaw = document.getElementById('keywordsArea').value;
+                const kwList = kwRaw.split(',').map(k => k.trim()).filter(k => k);
+
+                const payload = {
+                    name: document.getElementById('linkName').value,
+                    title: document.getElementById('title').value,
+                    site: site,
+                    offer: offer,
+                    ad_creative: document.getElementById('adCreative').value,
+                    keywords: kwList,
+                    pixel_token: document.getElementById('pixelToken').value,
+                    pixel_event: document.getElementById('pixelEvent').value
+                };
+
+                const res = await fetch('/api/create_link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(r => r.json());
+
+                if (res.status === 'ok') {
+                    resDiv.innerHTML = `<div style="padding:10px; background:#e8f5e9; border-radius:8px; border:1px solid #c8e6c9;">
+                        <span style="color:#2e7d32; font-weight:bold;">Success!</span><br>
+                        <a href="${res.url}" target="_blank" style="word-break:break-all; font-size:16px; color:var(--primary);">${res.url}</a>
+                    </div>`;
+                    loadHistory();
+                    getStats();
+                } else {
+                    resDiv.innerHTML = `<span style="color:var(--danger)">Error: ${res.message || 'API Error'}</span>`;
+                    debug("Create link failed: " + JSON.stringify(res), 'error');
+                }
+            } catch (e) {
+                resDiv.innerHTML = `<span style="color:var(--danger)">Network Error</span>`;
+                debug(e.toString(), 'error');
             }
         }
 
-        // Admin functions
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history').then(r => r.json());
+                const tbody = document.querySelector('#historyTable tbody');
+                if (res.status === 'ok') {
+                    tbody.innerHTML = res.history.map(h => `
+                        <tr>
+                            <td style="color:#666; font-size:11px;">${h.created_at}</td>
+                            <td style="font-weight:600;">${h.name}</td>
+                            <td><a href="${h.url || '#'}" target="_blank" style="color:var(--primary); text-decoration:none;">Open Link →</a></td>
+                        </tr>
+                    `).join('');
+                } else { tbody.innerHTML = '<tr><td colspan="3">Failed to load history</td></tr>'; }
+            } catch (e) { debug("History load failed", 'error'); }
+        }
+
         async function loadUsers() {
             const tbody = document.getElementById('userListBody');
             try {
                 const res = await fetch('/api/admin/users').then(r => r.json());
-
                 if (res.status === 'ok') {
-                    tbody.innerHTML = '';
-                    if (!res.users || res.users.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center;">No users found.</td></tr>';
-                        return;
-                    }
-                    res.users.forEach(u => {
-                        tbody.innerHTML += `
-                            <tr style="border-bottom:1px solid #eee;">
-                                <td style="padding:8px;">${u.id}</td>
-                                <td style="padding:8px; font-weight:bold;">${u.username}</td>
-                                <td style="padding:8px;"><span style="background:${u.role === 'admin' ? '#ffd700' : '#e2e6ea'}; padding:2px 6px; border-radius:4px; font-size:11px;">${u.role}</span></td>
-                                <td style="padding:8px;">
-                                    ${u.id !== 1 ? `<button onclick="deleteUser(${u.id})" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0; width:auto;">Delete</button>` : '<span style="color:#999;font-size:11px;">System</span>'}
-                                </td>
-                            </tr>
-                        `;
-                    });
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:red;">${res.message}</td></tr>`;
+                    tbody.innerHTML = res.users.map(u => `
+                        <tr>
+                            <td>${u.id}</td>
+                            <td font-weight="bold">${u.username}</td>
+                            <td><span class="status-badge" style="background:#eee;">${u.role}</span></td>
+                            <td>${u.id !== 1 ? `<button onclick="deleteUser(${u.id})" class="btn-danger btn-outline">Delete</button>` : '--'}</td>
+                        </tr>
+                    `).join('');
                 }
-            } catch (e) {
-                console.error("Load users failed", e);
-                tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:red;">Network Error</td></tr>`;
-            }
+            } catch (e) { debug("User load failed", 'error'); }
         }
 
         async function createUser() {
+            const msg = document.getElementById('adminMsg');
             const username = document.getElementById('newUsername').value;
             const password = document.getElementById('newPassword').value;
             const role = document.getElementById('newRole').value;
-            const msg = document.getElementById('adminMsg');
 
-            if (!username || !password) {
-                msg.textContent = "Username and password required";
-                msg.style.color = 'red';
-                return;
-            }
+            if (!username || !password) { msg.style.color = 'var(--danger)'; msg.textContent = "Fill all fields"; return; }
 
             try {
                 const res = await fetch('/api/admin/users/create', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password, role })
                 }).then(r => r.json());
 
                 if (res.status === 'ok') {
-                    msg.style.color = 'green';
-                    msg.textContent = "User created!";
+                    msg.style.color = 'var(--success)'; msg.textContent = "User added!";
                     document.getElementById('newUsername').value = '';
                     document.getElementById('newPassword').value = '';
                     loadUsers();
                 } else {
-                    msg.style.color = 'red';
-                    msg.textContent = res.message;
+                    msg.style.color = 'var(--danger)'; msg.textContent = res.message;
                 }
-            } catch (e) { msg.textContent = "Error creating user"; }
+            } catch (e) { msg.textContent = "Error"; }
         }
 
         async function deleteUser(id) {
-            if (!confirm('Are you sure you want to delete this user?')) return;
+            if (!confirm('Delete user?')) return;
             try {
                 const res = await fetch('/api/admin/users/delete', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: id })
                 }).then(r => r.json());
-
                 if (res.status === 'ok') loadUsers();
-                else alert(res.message);
-            } catch (e) { alert("Error deleting user"); }
-        }
-
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login.html';
-            } catch (e) {
-                alert('Logout failed');
-            }
-        }
-
-        async function loadData() {
-            config = await fetch('/api/data').then(r => r.json());
-
-            const sites = config.offers.map(o => o.id); // Assuming offers act as sites for now or separate config
-            const offers = config.offers;
-            const pixels = config.pixel_events || [];
-
-            populateSelect('siteSelect', offers, "Select Site");
-            populateSelect('offerSelect', offers, "Select Offer");
-            populateSelect('pixelSelect', pixels, "No Pixel (Skro Only)");
-
-            // Set Skro Postback
-            document.getElementById('postbackUrl').value = 'https://skrotrack.com/postback?clickId={clickid}&payout={payout}&transactionId={txid}';
-        }
-
-        function populateSelect(id, items, defaultText) {
-            const sel = document.getElementById(id);
-            sel.innerHTML = `<option value="">-- ${defaultText} --</option>`;
-            items.forEach(i => {
-                const val = i.id || i;
-                const name = i.name || i;
-                sel.innerHTML += `<option value="${val}">${name}</option>`;
-            });
+            } catch (e) { debug("Delete failed", 'error'); }
         }
 
         function toggleInput(type) {
             const sel = document.getElementById(type + 'Select');
             const inp = document.getElementById(type + 'Input');
-            if (inp.style.display === 'none') {
-                inp.style.display = 'block';
-                sel.style.display = 'none';
-            } else {
-                inp.style.display = 'none';
-                sel.style.display = 'block';
-            }
+            const isHidden = inp.style.display === 'none';
+            inp.style.display = isHidden ? 'block' : 'none';
+            sel.style.display = isHidden ? 'none' : 'block';
         }
 
-        async function createLink() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.textContent = "Creating...";
+        async function loadData() {
+            try {
+                const res = await fetch('/api/data').then(r => r.json());
+                config.offers = res.offers || [];
+                config.pixel_events = res.pixel_events || [];
 
-            // Get values, checking manual input if visible
-            let site = document.getElementById('siteInput').style.display !== 'none'
-                ? document.getElementById('siteInput').value
-                : document.getElementById('siteSelect').value;
+                const siteSel = document.getElementById('siteSelect');
+                const offerSel = document.getElementById('offerSelect');
 
-            let offer = document.getElementById('offerInput').style.display !== 'none'
-                ? document.getElementById('offerInput').value
-                : document.getElementById('offerSelect').value;
+                [siteSel, offerSel].forEach(s => {
+                    s.innerHTML = '<option value="">-- Select --</option>';
+                    config.offers.forEach(o => { s.innerHTML += `<option value="${o.id}">${o.name}</option>`; });
+                });
 
-            const payload = {
-                name: document.getElementById('linkName').value,
-                title: document.getElementById('title').value,
-                site: site,
-                offer: offer,
-                ad_creative: document.getElementById('adCreative').value,
-                keywords: Array.from(document.querySelectorAll('.kw')).map(i => i.value).filter(v => v),
-                pixel_token: document.getElementById('pixelToken').value,
-                pixel_event: document.getElementById('pixelEvent').value
-            };
-
-            const res = await fetch('/api/create_link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(r => r.json());
-
-            if (res.status === 'ok') {
-                resultDiv.innerHTML = `✅ Link Created!<br><a href="${res.url}" target="_blank" style="font-size:18px;">${res.url}</a>`;
-                loadHistory();
-                getStats();
-            } else {
-                resultDiv.innerHTML = `❌ Error: ${JSON.stringify(res.debug || res)}`;
-            }
+                debug("Data loaded successfully");
+            } catch (e) { debug("Data load failed", 'error'); }
         }
 
-        async function loadHistory() {
-            const res = await fetch('/api/history').then(r => r.json());
-            const div = document.getElementById('historyList');
-            if (res.status === 'ok') {
-                div.innerHTML = `<table style="width:100%">
-                    <tr><th>Date</th><th>ID</th><th>Name</th><th>Offer</th></tr>
-                    ${res.history.map(h => `<tr><td>${h.created_at}</td><td>${h.api_id}</td><td>${h.name}</td><td>${h.offer}</td></tr>`).join('')}
-                 </table>`;
-            }
-        }
-
-        async function triggerSync() {
-            const log = document.getElementById('logArea');
-            log.innerHTML += "<div>[CMD] Triggering manual sync...</div>";
-            const res = await fetch('/api/sync').then(r => r.json());
-            log.innerHTML += `<div>[RES] ${res.message}</div>`;
-        }
-
-        function updateStatus() {
-            fetch('/api/status').then(r => r.json()).then(d => {
+        async function updateStatus() {
+            try {
+                const d = await fetch('/api/status').then(r => r.json());
                 document.getElementById('lastSync').textContent = d.last_sync || "Never";
                 const log = document.getElementById('logArea');
-                // Only update if changed to avoid scroll jumping, or simple prepend
                 if (d.log && d.log.length > 0) {
-                    log.innerHTML = d.log.map(l => `<div>${l}</div>`).join('');
-                } else {
-                    log.innerHTML = "<div>No sync activity yet.</div>";
+                    log.innerHTML = d.log.map(l => {
+                        let cls = '';
+                        if (l.includes('[ERROR]')) cls = 'log-error';
+                        if (l.includes('[OK]')) cls = 'log-success';
+                        return `<div class="${cls}">${l}</div>`;
+                    }).join('');
                 }
-            });
+            } catch (e) { }
         }
 
         async function getStats() {
-            document.getElementById('statsLoading').style.display = 'inline';
             try {
                 const res = await fetch('/api/stats').then(r => r.json());
                 if (res.status === 'ok') {
@@ -643,30 +672,39 @@
                     document.getElementById('statConversions').textContent = res.total_conversions;
                 }
             } catch (e) { }
-            document.getElementById('statsLoading').style.display = 'none';
+        }
+
+        async function triggerSync() {
+            debug("Manual sync triggered", 'info');
+            await fetch('/api/sync');
+            updateStatus();
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
         }
 
         // Init
-        window.onload = function () {
-            getCurrentUser();
-            loadData();
-            loadHistory();
-            updateStatus();
-            getStats();
+        window.addEventListener('DOMContentLoaded', async () => {
+            debug("App starting...");
+            const user = await getCurrentUser();
+            if (user) {
+                loadData();
+                loadHistory();
+                updateStatus();
+                getStats();
 
-            setInterval(updateStatus, 5000); // Poll status
-            setInterval(getStats, 60000); // Poll stats
+                // Active listeners
+                document.getElementById('pixelSelect').addEventListener('change', (e) => {
+                    document.getElementById('pixelParams').style.display = e.target.value === 'custom' ? 'block' : 'none';
+                });
 
-            // Pixel toggle logic
-            document.getElementById('pixelSelect').addEventListener('change', function () {
-                const params = document.getElementById('pixelParams');
-                if (this.value === 'custom') { // Assuming we add custom option later
-                    params.style.display = 'block';
-                } else {
-                    params.style.display = 'none'; // Simplify for now
-                }
-            });
-        }
+                // Polling
+                setInterval(updateStatus, 8000);
+                setInterval(getStats, 60000);
+            }
+        });
     </script>
 </body>
 
