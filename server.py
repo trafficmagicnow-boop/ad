@@ -161,7 +161,9 @@ local_cache = {
     "articles": [],
     "pixel_events": [],
     "last_sync": "Never",
-    "sync_log": []
+    "sync_log": [],
+    "history": [],
+    "stats": {"status": "ok", "total_campaigns": 0, "total_conversions": 0}
 }
 
 SYNC_INTERVAL = 300 # 5 minutes
@@ -255,10 +257,33 @@ def scraper_loop():
                         local_cache["articles"] = [{"id": i.get("site_key") or i.get("id"), "name": i.get("title") or i.get("name")} for i in data if i.get("site_key") or i.get("id")]
                         print(f">>> Updated articles from API: {len(local_cache['articles'])} items")
                         break
+            # --- SCRAPE HISTORY ---
+            h = api_req(URL_INFO, "/panel/links", {"page": 1})
+            if h and h.get("status") == "ok":
+                lst = h.get("data", {}).get("list", []) or []
+                norm = []
+                for item in lst[:15]:
+                    norm.append({
+                        "date": item.get("date_create", ""),
+                        "id": item.get("link_id") or item.get("id", ""),
+                        "name": item.get("name", ""),
+                        "offer": item.get("offer", ""),
+                        "url": item.get("url", "")
+                    })
+                local_cache["history"] = norm
+                print(f">>> Updated history cache: {len(norm)} items")
+
+            # --- SCRAPE STATS ---
+            today = datetime.datetime.now().strftime("%d.%m.%Y")
+            s = api_req(URL_ACTION, "/panel/stats", {"date_start": today, "date_end": today, "timezone": "Europe/Kyiv"})
+            if s and s.get("status") == "ok":
+                local_cache["stats"] = s
+                print(">>> Updated stats cache")
+
         except Exception as e:
             print(f"Scraper Error: {e}")
         
-        time_module.sleep(3600) # Once per hour is enough for offers
+        time_module.sleep(300) # Faster refresh for stats/history (5 mins)
 
 
 def syncer_loop():
@@ -669,27 +694,10 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json({"status": "error", "debug": resp})
 
     def _handle_history(self):
-        resp = api_req(URL_INFO, "/panel/links", {"page": 1})
-        if resp and resp.get("status") == "ok":
-            lst = resp.get("data", {}).get("list", []) or []
-            normalized = []
-            for item in lst[:10]: # Check last 10
-                normalized.append({
-                    "date": item.get("date_create", ""),
-                    "id": item.get("link_id") or item.get("id", ""),
-                    "name": item.get("name", ""),
-                    "offer": item.get("offer", ""),
-                    "url": item.get("url", "")
-                })
-            self._send_json({"links": normalized})
-        else:
-            self._send_json({"links": []})
+        self._send_json({"status": "ok", "history": local_cache["history"]})
 
     def _handle_get_stats(self):
-        today = datetime.datetime.now().strftime("%d.%m.%Y")
-        payload = {"date_start": today, "date_end": today, "timezone": "Europe/Kyiv"}
-        resp = api_req(URL_ACTION, "/panel/stats", payload)
-        self._send_json(resp)
+        self._send_json(local_cache["stats"])
 
     def _handle_manual_sync(self):
         # Run a single sync iteration without spawning new infinite loop

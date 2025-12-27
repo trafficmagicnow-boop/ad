@@ -690,10 +690,7 @@
             debug("App starting...");
             const user = await getCurrentUser();
             if (user) {
-                loadData();
-                loadHistory();
-                updateStatus();
-                getStats();
+                loadDataStaggered();
 
                 // Active listeners
                 document.getElementById('pixelSelect').addEventListener('change', (e) => {
@@ -701,10 +698,18 @@
                 });
 
                 // Polling
-                setInterval(updateStatus, 8000);
-                setInterval(getStats, 60000);
+                setInterval(updateStatus, 15000); // 15s instead of 8s
+                setInterval(getStats, 300000);   // 5m instead of 1m
             }
         });
+
+        // Staggered loaders
+        async function loadDataStaggered() {
+            await loadData();
+            setTimeout(loadHistory, 500);
+            setTimeout(updateStatus, 1000);
+            setTimeout(getStats, 1500);
+        }
     </script>
 </body>
 
