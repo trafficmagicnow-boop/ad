@@ -784,7 +784,12 @@ if __name__ == "__main__":
     try:
         # Change dir to script dir to ensure relative paths work if needed
         os.chdir(script_dir)
-        with socketserver.TCPServer(("0.0.0.0", PORT), APIHandler) as httpd:  # Bind to 0.0.0.0 for Railway
+        # Use ThreadingTCPServer to prevent UI lag during long-running operations (like sync)
+        class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+            pass
+
+        socketserver.TCPServer.allow_reuse_address = True
+        with ThreadedTCPServer(("0.0.0.0", PORT), APIHandler) as httpd:
             httpd.serve_forever()
     except Exception as e:
         print(f"FATAL SERVER ERROR: {e}")

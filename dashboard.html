@@ -123,17 +123,72 @@
         th {
             background: #f1f3f5;
         }
+
+        /* Tabs Styling */
+        .tab-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab-btn i { margin-right: 8px; }
+
+        .tab-btn:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .tab-btn.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .tab-content.active {
+            display: grid;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <!-- Header -->
-        <div
-            style="background:white; padding:20px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.05); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.05); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;" class="full-width">
             <div>
                 <h2 style="margin:0; color:#333;">🚀 Adw Manager <span
-                        style="font-size:12px; color:#999; font-weight:normal;">v3.0</span></h2>
+                        style="font-size:12px; color:#999; font-weight:normal;">v3.1</span></h2>
                 <div id="status" style="margin-top:5px; color:#666; font-size:14px;">System Online</div>
             </div>
             <div style="text-align:right;">
@@ -143,58 +198,69 @@
             </div>
         </div>
 
-        <!-- Admin Panel (Conditional) -->
-        <div id="adminPanel" class="full-width card"
-            style="display:none; border-top: 3px solid #007bff; margin-bottom: 20px;">
-            <h2 style="color:#333; display:flex; justify-content:space-between; align-items:center; margin-top: 0;">
-                <span>🛡️ Admin Controls</span>
-                <button onclick="loadUsers()"
-                    style="background:#f8f9fa; color:#333; border:1px solid #ddd; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer;">↻
-                    Refresh</button>
-            </h2>
+        <!-- Navigation Tabs -->
+        <div class="tab-bar full-width">
+            <button class="tab-btn active" onclick="switchTab('campaigns', this)">🚀 Campaigns</button>
+            <button class="tab-btn" onclick="switchTab('monitoring', this)">📊 Monitoring</button>
+            <button id="adminTabBtn" class="tab-btn" onclick="switchTab('admin', this)" style="display:none;">🛡️ Admin</button>
+        </div>
 
-            <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:20px;">
-                <!-- User List -->
-                <div style="background:#fff; border:1px solid #eee; border-radius:6px; padding:15px;">
-                    <h3 style="margin-top:0; font-size:16px; border-bottom:1px solid #eee; padding-bottom:10px;">User
-                        Management</h3>
-                    <table style="width:100%; border-collapse: collapse; font-size:13px;">
-                        <thead>
-                            <tr style="background:#f8f9fa; text-align:left; color:#666;">
-                                <th style="padding:8px;">ID</th>
-                                <th style="padding:8px;">User</th>
-                                <th style="padding:8px;">Role</th>
-                                <th style="padding:8px;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="userListBody">
-                            <tr>
-                                <td colspan="4" style="padding:20px; text-align:center; color:#999;">Loading...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+        <!-- TAB: Campaigns -->
+        <div id="tab-campaigns" class="tab-content active" style="grid-template-columns: 1.5fr 1fr; gap: 20px;">
 
-                <!-- Create User -->
-                <div style="background:#fff; border:1px solid #eee; border-radius:6px; padding:15px;">
-                    <h3 style="margin-top:0; font-size:16px; border-bottom:1px solid #eee; padding-bottom:10px;">Add New
-                        User</h3>
+        <!-- TAB: Admin -->
+        <div id="tab-admin" class="tab-content full-width">
+            <div class="card" style="border-top: 3px solid #007bff; margin-bottom: 20px;">
+                <h2 style="color:#333; display:flex; justify-content:space-between; align-items:center; margin-top: 0;">
+                    <span>🛡️ Admin Controls</span>
+                    <button onclick="loadUsers()"
+                        style="background:#f8f9fa; color:#333; border:1px solid #ddd; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer;">↻
+                        Refresh</button>
+                </h2>
 
-                    <label style="font-size:13px;">Username</label>
-                    <input id="newUsername" placeholder="e.g. buyer_john" style="font-size:13px;">
+                <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:20px;">
+                    <!-- User List -->
+                    <div style="background:#fff; border:1px solid #eee; border-radius:6px; padding:15px;">
+                        <h3 style="margin-top:0; font-size:16px; border-bottom:1px solid #eee; padding-bottom:10px;">User
+                            Management</h3>
+                        <table style="width:100%; border-collapse: collapse; font-size:13px;">
+                            <thead>
+                                <tr style="background:#f8f9fa; text-align:left; color:#666;">
+                                    <th style="padding:8px;">ID</th>
+                                    <th style="padding:8px;">User</th>
+                                    <th style="padding:8px;">Role</th>
+                                    <th style="padding:8px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userListBody">
+                                <tr>
+                                    <td colspan="4" style="padding:20px; text-align:center; color:#999;">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                    <label style="font-size:13px;">Password</label>
-                    <input id="newPassword" type="password" placeholder="•••••••" style="font-size:13px;">
+                    <!-- Create User -->
+                    <div style="background:#fff; border:1px solid #eee; border-radius:6px; padding:15px;">
+                        <h3 style="margin-top:0; font-size:16px; border-bottom:1px solid #eee; padding-bottom:10px;">Add New
+                            User</h3>
 
-                    <label style="font-size:13px;">Role</label>
-                    <select id="newRole" style="font-size:13px;">
-                        <option value="user">User (Standard)</option>
-                        <option value="admin">Admin (Full Access)</option>
-                    </select>
+                        <label style="font-size:13px;">Username</label>
+                        <input id="newUsername" placeholder="e.g. buyer_john" style="font-size:13px;">
 
-                    <button onclick="createUser()" style="background:#28a745; margin-top:10px; font-size:14px;">Create
-                        User</button>
-                    <div id="adminMsg" style="margin-top:10px; font-size:13px; min-height:20px;"></div>
+                        <label style="font-size:13px;">Password</label>
+                        <input id="newPassword" type="password" placeholder="•••••••" style="font-size:13px;">
+
+                        <label style="font-size:13px;">Role</label>
+                        <select id="newRole" style="font-size:13px;">
+                            <option value="user">User (Standard)</option>
+                            <option value="admin">Admin (Full Access)</option>
+                        </select>
+
+                        <button onclick="createUser()" style="background:#28a745; margin-top:10px; font-size:14px;">Create
+                            User</button>
+                        <div id="adminMsg" style="margin-top:10px; font-size:13px; min-height:20px;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -276,19 +342,39 @@
                     Sync</button>
             </div>
 
-            <!-- History -->
+                <!-- History -->
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2 style="margin:0; border:none; font-size:18px;">Link History</h2>
+                        <button onclick="loadHistory()"
+                            style="width:auto; padding:5px 10px; font-size:12px;">Refresh</button>
+                    </div>
+
+                    <div id="historyList" style="margin-top:15px; font-size:13px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Monitoring -->
+        <div id="tab-monitoring" class="tab-content full-width" style="grid-template-columns: 1.5fr 1fr; gap: 20px;">
             <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin:0; border:none; font-size:18px;">Link History</h2>
-                    <button onclick="loadHistory()"
-                        style="width:auto; padding:5px 10px; font-size:12px;">Refresh</button>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h2 style="margin:0; border:none; font-size:18px;">Auto-Sync Status</h2>
+                    <span
+                        style="background:#28a745; color:white; padding:2px 8px; border-radius:4px; font-size:12px;">ACTIVE</span>
                 </div>
 
-                <div id="historyList" style="margin-top:15px; font-size:13px;"></div>
+                <div style="font-size:12px; color:#666; margin-bottom:5px;">Last Sync: <span
+                        id="lastSync">--:--:--</span></div>
+                <div id="logArea">Waiting for logs...</div>
+
+                <button onclick="triggerSync()"
+                    style="margin-top:10px; background:#dc3545; font-size:12px; padding:8px;">Trigger Manual
+                    Sync</button>
             </div>
 
-            <!-- Stats (NEW) -->
-            <div class="card" style="margin-top:20px;">
+            <!-- Stats & Additional Monitor Info -->
+            <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h2 style="margin:0; border:none; font-size:18px;">Quick Stats (24h)</h2>
                     <span id="statsLoading" style="font-size:11px; color:#999; display:none;">Updating...</span>
@@ -305,6 +391,7 @@
                 </div>
             </div>
         </div>
+        </div>
     </div>
 
     <script>
@@ -318,12 +405,11 @@
                     const data = await res.json();
                     if (data.status === 'ok') {
                         const user = data.user;
-                        document.getElementById('userInfo').textContent = `👤 ${user.username} (${user.role})`;
+                        document.getElementById('userInfo').textContent = `${user.username}`;
 
-                        // Show admin panel if admin
+                        // Show admin toggle if admin
                         if (user.role === 'admin') {
-                            document.getElementById('adminPanel').style.display = 'block';
-                            loadUsers();
+                            document.getElementById('adminTabBtn').style.display = 'inline-block';
                         }
                     }
                 } else {
@@ -331,6 +417,27 @@
                 }
             } catch (e) {
                 console.error("Auth check failed", e);
+            }
+        }
+
+        function switchTab(tabName, btn) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+            // Show selected tab
+            document.getElementById('tab-' + tabName).classList.add('active');
+            btn.classList.add('active');
+
+            // Specialized refreshers
+            if (tabName === 'admin') loadUsers();
+            if (tabName === 'monitoring') {
+                updateStatus();
+                getStats();
             }
         }
 
