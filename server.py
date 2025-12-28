@@ -18,7 +18,7 @@ def hash_password(password):
 
 def init_db(db_path):
     """Initialize the SQLite database with required tables and indexes."""
-    conn = sqlite3.connect(db_path, timeout=30.0)
+    conn = sqlite3.connect(db_path)
     try:
         c = conn.cursor()
         
@@ -92,7 +92,7 @@ def create_session(db_path, user_id):
     token = str(uuid.uuid4())
     expires_at = time_module.time() + 86400  # 24 hours
     
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with sqlite3.connect(db_path) as conn:
         c = conn.cursor()
         c.execute("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
                  (token, user_id, expires_at))
@@ -104,7 +104,7 @@ def validate_session(db_path, token):
     if not token:
         return None
     
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with sqlite3.connect(db_path) as conn:
         c = conn.cursor()
         c.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token,))
         res = c.fetchone()
@@ -127,7 +127,7 @@ def get_user_from_session(db_path, token):
     if not user_id:
         return None
     
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with sqlite3.connect(db_path) as conn:
         c = conn.cursor()
         c.execute("SELECT id, username, role FROM users WHERE id = ?", (user_id,))
         res = c.fetchone()
@@ -138,23 +138,12 @@ def get_user_from_session(db_path, token):
 
 def cleanup_expired_sessions(db_path):
     """Remove expired sessions"""
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with sqlite3.connect(db_path) as conn:
         c = conn.cursor()
         c.execute("DELETE FROM sessions WHERE expires_at < ?", (time_module.time(),))
         conn.commit()
 
 import sqlite3
-
-# --- CACHE DECORATORS ---
-DASHBOARD_CACHE = b""
-def init_dashboard_cache():
-    global DASHBOARD_CACHE
-    try:
-        with open("dashboard.html", "rb") as f:
-            DASHBOARD_CACHE = f.read()
-    except Exception as e:
-        print(f"Error caching dashboard: {e}")
-        DASHBOARD_CACHE = b"Error loading dashboard"
 
 # --- CONFIGURATION ---
 TOKEN = "5a4fb29a30fb14b3c7bbea8333056f86"
@@ -191,7 +180,7 @@ def api_req(domain, endpoint, data=None):
         else:
             req = urllib.request.Request(url, headers=headers)
         
-        with urllib.request.urlopen(req, context=ctx, timeout=5) as r:
+        with urllib.request.urlopen(req, context=ctx, timeout=15) as r:
             raw = r.read().decode()
             # Handle broken API returning PHP notices before JSON
             if "{" in raw:
@@ -365,7 +354,7 @@ def syncer_loop():
                                 # Sanity check: don't sync tiny float diffs
                                 if delta > 0.001:
                                     # Generate unique transaction ID for this partial update (upsell)
-                                    txid = f"{clickid}-{int(time_module.time())}"
+                                    txid = f"{clickid}-{int(time.time())}"
                                     pb_url = f"https://skrotrack.com/postback?clickId={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=autosync"
                                     try:
                                         urllib.request.urlopen(pb_url, context=ctx)
@@ -452,7 +441,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-type', 'text/html; charset=utf-8')
                 self.end_headers()
                 # Ensure we read the file from disk every time for now
-                self.wfile.write(DASHBOARD_CACHE)
+                with open("dashboard.html", "rb") as f: self.wfile.write(f.read())
             else:
                 # Serve login page
                 if not os.path.exists("login.html"):
@@ -746,7 +735,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                                 if current_rev > prev_rev:
                                     delta = current_rev - prev_rev
                                     if delta > 0.001:
-                                        txid = f"{clickid}-{int(time_module.time())}"
+                                        txid = f"{clickid}-{int(time.time())}"
                                         pb_url = f"https://skrotrack.com/postback?clickId={clickid}&payout={delta}&transactionId={txid}&status=approved&txt=manual"
                                         try:
                                             urllib.request.urlopen(pb_url, context=ctx)
@@ -765,7 +754,6 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
     def _send_json(self, d):
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.end_headers()
         self.wfile.write(json.dumps(d).encode('utf-8'))
 
@@ -796,7 +784,6 @@ if __name__ == "__main__":
     # ---------------------------
 
     # Start threads
-    init_dashboard_cache()
     threading.Thread(target=scraper_loop, daemon=True).start()
     threading.Thread(target=syncer_loop, daemon=True).start()
     
