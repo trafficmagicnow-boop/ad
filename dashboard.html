@@ -231,23 +231,11 @@
             display: none;
             grid-template-columns: 1.5fr 1fr;
             gap: 20px;
-            animation: slideUp 0.3s ease-out;
+            /* Animation disabled for performance */
         }
 
         .tab-content.active {
             display: grid;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         /* Responsive Layout */
@@ -273,10 +261,51 @@
             background: #e8f5e9;
             color: #2e7d32;
         }
+
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
-<body>
+<body style="position:relative;">
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div>Loading Adw Manager...</div>
+    </div>
     <div class="container">
         <!-- Header -->
         <header class="card full-width"
@@ -551,18 +580,26 @@
             }
         }
 
+        let lastHistoryHash = '';
         async function loadHistory() {
             try {
-                const res = await fetch('/api/history').then(r => r.json());
+                const response = await fetch('/api/history');
+                if (!response.ok) throw new Error('History fetch failed');
+                const res = await response.json();
                 const tbody = document.querySelector('#historyTable tbody');
                 if (res.status === 'ok') {
-                    tbody.innerHTML = res.history.map(h => `
-                        <tr>
-                            <td style="color:#666; font-size:11px;">${h.created_at}</td>
-                            <td style="font-weight:600;">${h.name}</td>
-                            <td><a href="${h.url || '#'}" target="_blank" style="color:var(--primary); text-decoration:none;">Open Link →</a></td>
-                        </tr>
-                    `).join('');
+                    // Only update DOM if history changed (performance optimization)
+                    const newHash = JSON.stringify(res.history);
+                    if (newHash !== lastHistoryHash) {
+                        lastHistoryHash = newHash;
+                        tbody.innerHTML = res.history.map(h => `
+                            <tr>
+                                <td style="color:#666; font-size:11px;">${h.created_at}</td>
+                                <td style="font-weight:600;">${h.name}</td>
+                                <td><a href="${h.url || '#'}" target="_blank" style="color:var(--primary); text-decoration:none;">Open Link →</a></td>
+                            </tr>
+                        `).join('');
+                    }
                 } else { tbody.innerHTML = '<tr><td colspan="3">Failed to load history</td></tr>'; }
             } catch (e) { debug("History load failed", 'error'); }
         }
@@ -697,18 +734,26 @@
                     document.getElementById('pixelParams').style.display = e.target.value === 'custom' ? 'block' : 'none';
                 });
 
-                // Polling
-                setInterval(updateStatus, 15000); // 15s instead of 8s
-                setInterval(getStats, 300000);   // 5m instead of 1m
+                // Polling - drastically reduced for performance
+                setInterval(updateStatus, 60000);  // 60s (1 minute)
+                setInterval(getStats, 1800000);    // 30 minutes
             }
         });
 
         // Staggered loaders
         async function loadDataStaggered() {
-            await loadData();
-            setTimeout(loadHistory, 500);
-            setTimeout(updateStatus, 1000);
-            setTimeout(getStats, 1500);
+            try {
+                await loadData();
+                setTimeout(loadHistory, 400);
+                setTimeout(updateStatus, 800);
+                setTimeout(getStats, 1200);
+            } finally {
+                // Hide overlay after first batch
+                setTimeout(() => {
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) overlay.style.display = 'none';
+                }, 1500);
+            }
         }
     </script>
 </body>
