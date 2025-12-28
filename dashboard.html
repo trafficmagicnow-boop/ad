@@ -697,9 +697,9 @@
                     document.getElementById('pixelParams').style.display = e.target.value === 'custom' ? 'block' : 'none';
                 });
 
-                // Polling
-                setInterval(updateStatus, 15000); // 15s instead of 8s
-                setInterval(getStats, 300000);   // 5m instead of 1m
+                // Polling - reduced for better performance
+                setInterval(updateStatus, 30000); // 30s
+                setInterval(getStats, 600000);    // 10m
             }
         });
 
