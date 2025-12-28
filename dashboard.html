@@ -553,7 +553,7 @@
 
         async function loadHistory() {
             try {
-                const res = await fetch('/api/history').then(r => r.json());
+                const res = await fetch('/api/list_links').then(r => r.json());
                 const tbody = document.querySelector('#historyTable tbody');
                 if (res.status === 'ok') {
                     tbody.innerHTML = res.history.map(h => `
@@ -666,7 +666,7 @@
 
         async function getStats() {
             try {
-                const res = await fetch('/api/stats').then(r => r.json());
+                const res = await fetch('/api/get_stats').then(r => r.json());
                 if (res.status === 'ok') {
                     document.getElementById('statCampaigns').textContent = res.total_campaigns;
                     document.getElementById('statConversions').textContent = res.total_conversions;
