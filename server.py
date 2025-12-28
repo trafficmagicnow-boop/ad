@@ -424,6 +424,10 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             })
         elif parsed.path == "/api/status":
             self._send_json({"last_sync": local_cache["last_sync"], "log": local_cache["sync_log"]})
+        elif parsed.path == "/api/list_links":
+            self._handle_history()
+        elif parsed.path == "/api/get_stats":
+            self._handle_get_stats()
         elif parsed.path == "/" or parsed.path == "/index.html" or parsed.path == "/dashboard.html":
             # Check if user is authenticated
             storage_dir = os.environ.get("STORAGE_PATH", ".")
